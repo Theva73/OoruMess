@@ -1,0 +1,606 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { 
+  ShoppingBag, 
+  ChefHat, 
+  Utensils, 
+  Coffee, 
+  Clock, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  CheckCircle, 
+  X,
+  ArrowLeft,
+  Flame,
+  Bell
+} from 'lucide-react';
+
+// --- Configuration ---
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAT-Q_8g-JHlE4GCPj4JjwgaOf7_fjWj0Y",
+  authDomain: "ooru-mess.firebaseapp.com",
+  projectId: "ooru-mess",
+  storageBucket: "ooru-mess.firebasestorage.app",
+  messagingSenderId: "416498252793",
+  appId: "1:416498252793:web:76d610bdb967953fb75b28",
+  measurementId: "G-D7SXMP1YS2"
+};
+
+// --- Initializing Firebase ---
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// --- Menu Data (Digitized from User CSV) ---
+const MENU_DATA = [
+  // Beverages
+  { id: 'b1', name: 'Drink Of The Day', variant: '', category: 'Beverages', price: 0 },
+  { id: 'b2', name: 'Coke', variant: '', category: 'Beverages', price: 2.5 },
+  { id: 'b3', name: 'Thinnai Tea', variant: '', category: 'Beverages', price: 5 },
+  { id: 'b4', name: 'Thinnai Coffee', variant: '', category: 'Beverages', price: 5 },
+  
+  // Food - Banana Leaf Sets
+  { id: 'f1', name: 'Banana Leaf Set', variant: 'Vegetarian', category: 'Food', price: 14.9 },
+  { id: 'f2', name: 'Banana Leaf Set', variant: 'Chicken', category: 'Food', price: 14.9 },
+  { id: 'f3', name: 'Banana Leaf Set', variant: 'Mutton', category: 'Food', price: 14.9 },
+  { id: 'f4', name: 'Banana Leaf Set', variant: 'Fish', category: 'Food', price: 14.9 },
+  { id: 'f5', name: 'Banana Leaf Set', variant: 'Prawn', category: 'Food', price: 14.9 },
+  { id: 'f6', name: 'Banana Leaf Set', variant: 'Squid', category: 'Food', price: 14.9 },
+  { id: 'f7', name: 'Banana Leaf Set', variant: 'Tauhu + Potato', category: 'Food', price: 14.9 },
+  
+  // Food - Student Sets
+  { id: 's1', name: 'Student Banana Leaf Set', variant: 'Vegetarian', category: 'Food', price: 12.9 },
+  { id: 's2', name: 'Student Banana Leaf Set', variant: 'Chicken', category: 'Food', price: 12.9 },
+  { id: 's3', name: 'Student Banana Leaf Set', variant: 'Mutton', category: 'Food', price: 12.9 },
+  { id: 's4', name: 'Student Banana Leaf Set', variant: 'Fish', category: 'Food', price: 12.9 },
+  
+  // Food - Add Ons
+  { id: 'a1', name: 'Chicken Add-On', variant: '', category: 'Food', price: 2 },
+  { id: 'a2', name: 'Mutton Add-On', variant: '', category: 'Food', price: 3 },
+  { id: 'a3', name: 'Fish Add-On', variant: '', category: 'Food', price: 4 },
+  { id: 'a4', name: 'Prawn Add-On', variant: '', category: 'Food', price: 4 },
+  { id: 'a5', name: 'Veg Add-On', variant: '', category: 'Food', price: 2 },
+  { id: 'a6', name: 'Kids Meal', variant: '', category: 'Food', price: 5 },
+
+  // Thinnai Time
+  { id: 't1', name: 'Vadai Set', variant: '', category: 'Thinnai Time', price: 5 },
+  { id: 't2', name: 'Vadai', variant: 'Single', category: 'Thinnai Time', price: 1.7 },
+  { id: 't3', name: 'Aloo Bonda', variant: '', category: 'Thinnai Time', price: 2 },
+  { id: 't4', name: 'Idli Set', variant: '', category: 'Thinnai Time', price: 5 },
+  { id: 't5', name: 'Idiyappam Set', variant: '', category: 'Thinnai Time', price: 5 },
+  { id: 't6', name: 'Egg Bonda', variant: '', category: 'Thinnai Time', price: 2.5 },
+  { id: 't7', name: 'Chappati Set', variant: '', category: 'Thinnai Time', price: 5 },
+];
+
+const CATEGORIES = ['Food', 'Beverages', 'Thinnai Time'];
+
+// --- Utility Components ---
+
+const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false }) => {
+  const baseStyle = "px-4 py-2 rounded-lg font-semibold transition-all duration-200 active:scale-95 flex items-center justify-center gap-2";
+  const variants = {
+    primary: "bg-orange-600 text-white shadow-lg hover:bg-orange-700 disabled:bg-orange-300",
+    secondary: "bg-white text-orange-600 border-2 border-orange-100 hover:bg-orange-50",
+    outline: "border border-gray-300 text-gray-700 hover:bg-gray-50",
+    danger: "bg-red-50 text-red-600 hover:bg-red-100",
+    success: "bg-green-600 text-white hover:bg-green-700"
+  };
+
+  return (
+    <button 
+      onClick={onClick} 
+      className={`${baseStyle} ${variants[variant]} ${className}`}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+};
+
+const Card = ({ children, className = '' }) => (
+  <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+    {children}
+  </div>
+);
+
+const Badge = ({ children, color = 'gray' }) => {
+  const colors = {
+    gray: 'bg-gray-100 text-gray-800',
+    green: 'bg-green-100 text-green-800',
+    orange: 'bg-orange-100 text-orange-800',
+    blue: 'bg-blue-100 text-blue-800',
+    yellow: 'bg-yellow-100 text-yellow-800'
+  };
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>
+      {children}
+    </span>
+  );
+};
+
+// --- Main Application ---
+
+export default function OoruMessApp() {
+  const [user, setUser] = useState(null);
+  const [view, setView] = useState('landing'); // landing, customer, kitchen
+  const [cart, setCart] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('Food');
+  const [orders, setOrders] = useState([]);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [tableNumber, setTableNumber] = useState('');
+  const [placingOrder, setPlacingOrder] = useState(false);
+
+  // App ID for Firestore path
+  const appId = "ooru-mess-v1"; // Using a static ID for this demo to ensure consistent paths
+
+  // --- Auth & Data Effects ---
+  useEffect(() => {
+    const initAuth = async () => {
+      await signInAnonymously(auth);
+    };
+    initAuth();
+    
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    // Listen to ALL orders for the kitchen view
+    // In a real app, you might split collections, but shared collection is fine for this scope
+    const q = query(
+      collection(db, 'artifacts', appId, 'public', 'data', 'orders'),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ordersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setOrders(ordersData);
+    }, (error) => {
+      console.error("Error fetching orders:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // --- Customer Actions ---
+
+  const addToCart = (item) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.id === item.id);
+      if (existing) {
+        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      }
+      return [...prev, { ...item, quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (itemId) => {
+    setCart(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const updateQuantity = (itemId, delta) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return { ...item, quantity: Math.max(0, item.quantity + delta) };
+      }
+      return item;
+    }).filter(i => i.quantity > 0));
+  };
+
+  const cartTotal = useMemo(() => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  }, [cart]);
+
+  const handlePlaceOrder = async () => {
+    if (!tableNumber || cart.length === 0) return;
+    setPlacingOrder(true);
+
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), {
+        tableNumber,
+        items: cart,
+        total: cartTotal,
+        status: 'pending', // pending, cooking, ready, served
+        timestamp: serverTimestamp(),
+        userId: user.uid
+      });
+      
+      setCart([]);
+      setIsCheckoutModalOpen(false);
+      setTableNumber('');
+      alert("Order Sent to Kitchen!"); // Simple feedback
+    } catch (err) {
+      console.error("Error placing order:", err);
+      alert("Failed to place order. Please try again.");
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
+  // --- Kitchen Actions ---
+
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: newStatus
+      });
+    } catch (err) {
+      console.error("Error updating status:", err);
+    }
+  };
+
+  // --- Views ---
+
+  if (!user) return <div className="min-h-screen flex items-center justify-center bg-orange-50 text-orange-600 font-bold animate-pulse">Loading Ooru Mess...</div>;
+
+  // LANDING SCREEN
+  if (view === 'landing') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex flex-col items-center justify-center p-6 text-white">
+        <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full text-center">
+          <div className="bg-white rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <Utensils className="w-12 h-12 text-orange-600" />
+          </div>
+          <h1 className="text-4xl font-bold mb-2">Ooru Mess</h1>
+          <p className="text-orange-100 mb-8">Authentic Banana Leaf Experience</p>
+          
+          <div className="space-y-4">
+            <button 
+              onClick={() => setView('customer')}
+              className="w-full bg-white text-orange-600 py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-orange-50 transform transition hover:scale-105 flex items-center justify-center gap-3"
+            >
+              <ShoppingBag className="w-6 h-6" />
+              Place an Order
+            </button>
+            <button 
+              onClick={() => setView('kitchen')}
+              className="w-full bg-orange-800/50 text-white border border-white/20 py-4 rounded-xl font-bold text-lg hover:bg-orange-800/70 transform transition hover:scale-105 flex items-center justify-center gap-3"
+            >
+              <ChefHat className="w-6 h-6" />
+              Kitchen Display
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // CUSTOMER VIEW
+  if (view === 'customer') {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-32">
+        {/* Header */}
+        <div className="bg-white sticky top-0 z-20 shadow-sm px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setView('landing')} className="p-2 -ml-2 text-gray-500 hover:text-gray-800">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="font-bold text-lg text-gray-800 leading-tight">Ooru Mess</h1>
+              <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                Open for Ordering
+              </p>
+            </div>
+          </div>
+          <div className="relative">
+             <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
+               <ShoppingBag className="w-4 h-4" />
+               {cartTotal.toFixed(2)}
+             </div>
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="bg-white border-b border-gray-100 overflow-x-auto sticky top-[60px] z-10">
+          <div className="flex px-4 gap-6 min-w-max">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`py-3 text-sm font-semibold border-b-2 transition-colors ${
+                  activeCategory === cat 
+                    ? 'border-orange-500 text-orange-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Menu Grid */}
+        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {MENU_DATA.filter(i => i.category === activeCategory).map(item => (
+            <Card key={item.id} className="flex flex-col relative overflow-visible">
+              <div className="p-4 flex flex-row justify-between items-start gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                     {/* Icon based on category */}
+                     {item.category === 'Food' && <div className="p-1.5 bg-green-100 rounded-md"><Utensils className="w-4 h-4 text-green-700"/></div>}
+                     {item.category === 'Beverages' && <div className="p-1.5 bg-blue-100 rounded-md"><Coffee className="w-4 h-4 text-blue-700"/></div>}
+                     {item.category === 'Thinnai Time' && <div className="p-1.5 bg-yellow-100 rounded-md"><Clock className="w-4 h-4 text-yellow-700"/></div>}
+                     <h3 className="font-bold text-gray-800">{item.name}</h3>
+                  </div>
+                  
+                  {item.variant && (
+                    <p className="text-sm text-gray-500 mb-2 pl-9">{item.variant}</p>
+                  )}
+                  
+                  <div className="pl-9 mt-1">
+                    <span className="font-bold text-lg text-gray-900">RM {item.price.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                   {cart.find(c => c.id === item.id) ? (
+                     <div className="flex flex-col items-center bg-gray-100 rounded-lg p-1">
+                       <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white rounded-md text-green-600"><Plus className="w-4 h-4"/></button>
+                       <span className="font-bold text-sm py-1">{cart.find(c => c.id === item.id).quantity}</span>
+                       <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white rounded-md text-red-600"><Minus className="w-4 h-4"/></button>
+                     </div>
+                   ) : (
+                     <Button onClick={() => addToCart(item)} variant="secondary" className="!px-3 !py-1.5 !text-sm">
+                       Add
+                     </Button>
+                   )}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Floating Cart Bar */}
+        {cart.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.1)] p-4 pb-8 z-30 animate-slide-up">
+            <div className="max-w-4xl mx-auto flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-gray-500 text-xs uppercase font-bold tracking-wider">{cart.reduce((a,b) => a + b.quantity, 0)} Items in Cart</span>
+                <span className="text-xl font-bold text-gray-900">Total: RM {cartTotal.toFixed(2)}</span>
+              </div>
+              <Button onClick={() => setIsCheckoutModalOpen(true)} className="px-8 shadow-orange-200 shadow-xl">
+                View Cart & Order
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Checkout Modal */}
+        {isCheckoutModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
+            <div className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-orange-50 sm:rounded-t-2xl">
+                <h2 className="font-bold text-lg flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-orange-600"/> 
+                  Your Order
+                </h2>
+                <button onClick={() => setIsCheckoutModalOpen(false)} className="p-2 hover:bg-white rounded-full transition-colors"><X className="w-5 h-5"/></button>
+              </div>
+              
+              <div className="p-4 overflow-y-auto flex-1 space-y-4">
+                {cart.map(item => (
+                  <div key={item.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                    <div>
+                      <div className="font-semibold text-gray-800">{item.name}</div>
+                      {item.variant && <div className="text-xs text-gray-500">{item.variant}</div>}
+                      <div className="text-sm font-medium text-orange-600 mt-1">RM {(item.price * item.quantity).toFixed(2)}</div>
+                    </div>
+                    <div className="flex items-center gap-3 bg-white border rounded-lg px-2 py-1 shadow-sm">
+                      <button onClick={() => updateQuantity(item.id, -1)} className="text-gray-400 hover:text-red-500"><Minus className="w-4 h-4"/></button>
+                      <span className="w-4 text-center text-sm font-bold">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="text-gray-400 hover:text-green-500"><Plus className="w-4 h-4"/></button>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="pt-4 border-t border-dashed border-gray-300">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Table Number <span className="text-red-500">*</span></label>
+                  <input 
+                    type="number" 
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    placeholder="e.g., 5"
+                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-lg font-bold text-center tracking-widest"
+                  />
+                  <p className="text-xs text-gray-400 mt-2 text-center">Enter the number on your table stand.</p>
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-gray-100 bg-gray-50 sm:rounded-b-2xl">
+                <Button 
+                  onClick={handlePlaceOrder} 
+                  disabled={!tableNumber || placingOrder}
+                  className="w-full py-4 text-lg shadow-xl"
+                >
+                  {placingOrder ? 'Sending Order...' : `Confirm • RM ${cartTotal.toFixed(2)}`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // KITCHEN VIEW
+  if (view === 'kitchen') {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col">
+        {/* Kitchen Header */}
+        <div className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-50">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setView('landing')} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <ChefHat className="text-orange-500" />
+                Kitchen Display System
+              </h1>
+              <p className="text-slate-400 text-xs">Ooru Mess • Live Feed</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+               <span className="text-sm font-mono text-green-400">ONLINE</span>
+             </div>
+          </div>
+        </div>
+
+        {/* Kanban Board */}
+        <div className="flex-1 overflow-x-auto p-6">
+           <div className="flex gap-6 min-w-max h-full">
+             
+             {/* New Orders Column */}
+             <div className="w-80 sm:w-96 flex flex-col gap-4">
+               <div className="flex items-center justify-between pb-2 border-b-2 border-blue-500 mb-2">
+                 <h2 className="font-bold text-slate-700 text-lg uppercase tracking-wide">Pending</h2>
+                 <Badge color="blue">{orders.filter(o => o.status === 'pending').length}</Badge>
+               </div>
+               {orders.filter(o => o.status === 'pending').map(order => (
+                 <KitchenTicket key={order.id} order={order} onUpdateStatus={updateOrderStatus} />
+               ))}
+               {orders.filter(o => o.status === 'pending').length === 0 && (
+                 <div className="text-center py-10 text-slate-400 italic bg-white/50 rounded-xl border-2 border-dashed border-slate-200">No pending orders</div>
+               )}
+             </div>
+
+             {/* Cooking Column */}
+             <div className="w-80 sm:w-96 flex flex-col gap-4">
+               <div className="flex items-center justify-between pb-2 border-b-2 border-orange-500 mb-2">
+                 <h2 className="font-bold text-slate-700 text-lg uppercase tracking-wide">Cooking</h2>
+                 <Badge color="orange">{orders.filter(o => o.status === 'cooking').length}</Badge>
+               </div>
+               {orders.filter(o => o.status === 'cooking').map(order => (
+                 <KitchenTicket key={order.id} order={order} onUpdateStatus={updateOrderStatus} />
+               ))}
+             </div>
+
+             {/* Ready/Served History (Last 5) */}
+             <div className="w-80 sm:w-96 flex flex-col gap-4">
+               <div className="flex items-center justify-between pb-2 border-b-2 border-green-500 mb-2">
+                 <h2 className="font-bold text-slate-700 text-lg uppercase tracking-wide">Ready / Served</h2>
+                 <Badge color="green">{orders.filter(o => ['ready', 'served'].includes(o.status)).length}</Badge>
+               </div>
+               {orders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5).map(order => (
+                 <KitchenTicket key={order.id} order={order} onUpdateStatus={updateOrderStatus} readOnly={order.status === 'served'} />
+               ))}
+             </div>
+
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// --- Kitchen Ticket Component ---
+
+const KitchenTicket = ({ order, onUpdateStatus, readOnly = false }) => {
+  const timeString = order.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Just now';
+  
+  // Calculate duration if needed, for now just show timestamp
+  
+  const statusConfig = {
+    pending: { color: 'border-l-4 border-l-blue-500', bg: 'bg-white' },
+    cooking: { color: 'border-l-4 border-l-orange-500', bg: 'bg-orange-50' },
+    ready: { color: 'border-l-4 border-l-green-500', bg: 'bg-green-50' },
+    served: { color: 'border-l-4 border-l-gray-300 opacity-60', bg: 'bg-gray-100' }
+  };
+
+  const style = statusConfig[order.status] || statusConfig.pending;
+
+  return (
+    <div className={`rounded-lg shadow-sm p-4 ${style.bg} ${style.color} transition-all duration-300 hover:shadow-md`}>
+      <div className="flex justify-between items-start mb-3 border-b border-black/5 pb-2">
+        <div>
+           <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Table</div>
+           <div className="text-3xl font-black text-gray-800 leading-none">{order.tableNumber}</div>
+        </div>
+        <div className="text-right">
+          <div className="flex items-center gap-1 text-xs font-medium text-gray-500 justify-end">
+            <Clock className="w-3 h-3" /> {timeString}
+          </div>
+          <div className="mt-1">
+             {order.status === 'pending' && <span className="text-xs font-bold text-white bg-blue-500 px-2 py-0.5 rounded">NEW</span>}
+             {order.status === 'cooking' && <span className="text-xs font-bold text-white bg-orange-500 px-2 py-0.5 rounded flex items-center gap-1"><Flame className="w-3 h-3"/> COOKING</span>}
+             {order.status === 'ready' && <span className="text-xs font-bold text-white bg-green-500 px-2 py-0.5 rounded">READY</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2 mb-4">
+        {order.items.map((item, idx) => (
+          <div key={idx} className="flex justify-between items-start text-sm">
+            <div className="flex gap-2">
+               <span className="font-bold text-gray-800 bg-gray-200 px-1.5 rounded h-fit">{item.quantity}x</span>
+               <div>
+                 <span className="text-gray-800 font-medium block">{item.name}</span>
+                 {item.variant && <span className="text-gray-500 text-xs italic">{item.variant}</span>}
+               </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {!readOnly && (
+        <div className="grid grid-cols-1 gap-2 mt-2 pt-2 border-t border-black/5">
+          {order.status === 'pending' && (
+            <button 
+              onClick={() => onUpdateStatus(order.id, 'cooking')}
+              className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded font-bold text-sm flex items-center justify-center gap-2"
+            >
+              Start Cooking <Flame className="w-4 h-4"/>
+            </button>
+          )}
+          {order.status === 'cooking' && (
+            <button 
+              onClick={() => onUpdateStatus(order.id, 'ready')}
+              className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded font-bold text-sm flex items-center justify-center gap-2"
+            >
+              Mark Ready <CheckCircle className="w-4 h-4"/>
+            </button>
+          )}
+          {order.status === 'ready' && (
+            <button 
+              onClick={() => onUpdateStatus(order.id, 'served')}
+              className="w-full py-2 bg-gray-700 hover:bg-gray-800 text-white rounded font-bold text-sm"
+            >
+              Mark Served
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
