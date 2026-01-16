@@ -44,7 +44,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // --- Configuration ---
         const firebaseConfig = {
@@ -119,9 +119,8 @@
             loading: true,
             error: null,
             adminPin: '',
-            adminError: '',
-            newCategoryName: '',
-            newItem: { name: '', variant: '', price: '', category: '' }
+            adminAuthenticated: false,
+            adminCollapsedCategories: {} // Track which categories are closed
         };
 
         // --- Initialization ---
@@ -328,6 +327,11 @@
             await deleteDoc(doc(db, basePath, "menu", id));
         };
 
+        window.toggleAdminCategory = (catName) => {
+            state.adminCollapsedCategories[catName] = !state.adminCollapsedCategories[catName];
+            render();
+        }
+
         // --- Order Logic ---
 
         window.placeOrder = async () => {
@@ -462,7 +466,66 @@
 
         function renderAdmin(container) {
             const categories = state.categories.sort((a,b) => a.order - b.order);
-            const menuItems = state.menuItems.sort((a,b) => a.category.localeCompare(b.category));
+            const menuItems = state.menuItems;
+
+            // Generate HTML for grouped items
+            const groupedMenuHtml = categories.map(cat => {
+                const catItems = menuItems.filter(item => item.category === cat.name);
+                const isCollapsed = state.adminCollapsedCategories[cat.name];
+                
+                return `
+                    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div onclick="toggleAdminCategory('${cat.name}')" class="p-4 flex justify-between items-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition select-none">
+                            <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                                <i data-lucide="chevron-${isCollapsed ? 'right' : 'down'}" class="w-5 h-5 transition-transform text-gray-400"></i>
+                                ${cat.name}
+                            </h3>
+                            <span class="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-bold">${catItems.length}</span>
+                        </div>
+                        <div class="${isCollapsed ? 'hidden' : 'block'} p-4 border-t border-gray-100 bg-white">
+                            <div class="space-y-2">
+                                ${catItems.length > 0 ? catItems.map(item => `
+                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition group">
+                                        <div>
+                                            <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                                            ${item.variant ? `<div class="text-xs text-gray-500">• ${item.variant}</div>` : ''}
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="font-bold text-gray-900 text-sm">RM ${parseFloat(item.price).toFixed(2)}</span>
+                                            <button onclick="handleDeleteItem('${item.id}')" class="text-gray-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('') : '<p class="text-xs text-gray-400 italic py-2 text-center">No items in this category.</p>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Handle Uncategorized Items (Safety check)
+            const uncategorized = menuItems.filter(item => !categories.some(c => c.name === item.category));
+            const uncategorizedHtml = uncategorized.length > 0 ? `
+                <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-red-100">
+                    <h3 class="font-bold text-red-800 mb-3 flex justify-between items-center border-b border-red-100 pb-2">
+                        Uncategorized
+                        <span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold">${uncategorized.length}</span>
+                    </h3>
+                    <div class="space-y-2">
+                        ${uncategorized.map(item => `
+                            <div class="flex justify-between items-center p-3 bg-red-50/50 rounded-lg">
+                                <div>
+                                    <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                                    <div class="text-xs text-gray-500 italic">Category: ${item.category} (Missing)</div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="font-bold text-gray-900 text-sm">RM ${parseFloat(item.price).toFixed(2)}</span>
+                                    <button onclick="handleDeleteItem('${item.id}')" class="text-red-400 hover:text-red-600 p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : '';
 
             container.innerHTML = `
                 <div class="min-h-screen bg-gray-50 pb-20">
@@ -473,7 +536,7 @@
                         </div>
                     </div>
 
-                    <div class="max-w-4xl mx-auto p-4 space-y-8">
+                    <div class="max-w-4xl mx-auto p-4 space-y-6">
                         
                         <!-- 1. Add Category -->
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -483,7 +546,7 @@
                                 <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">Add</button>
                             </form>
                             <div class="flex flex-wrap gap-2 mt-4">
-                                ${categories.map(c => `<span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium border border-gray-200">${c.name}</span>`).join('')}
+                                ${categories.map(c => `<span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">${c.name}</span>`).join('')}
                             </div>
                         </div>
 
@@ -509,23 +572,11 @@
                             </form>
                         </div>
 
-                        <!-- 3. Current Menu List -->
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="list" class="w-5 h-5 text-orange-600"></i> Current Menu Items (${menuItems.length})</h2>
-                            <div class="space-y-2 max-h-96 overflow-y-auto pr-2">
-                                ${menuItems.map(item => `
-                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition">
-                                        <div>
-                                            <div class="font-semibold text-gray-800">${item.name}</div>
-                                            <div class="text-xs text-gray-500">${item.category} ${item.variant ? `• ${item.variant}` : ''}</div>
-                                        </div>
-                                        <div class="flex items-center gap-4">
-                                            <span class="font-bold text-gray-900">RM ${parseFloat(item.price).toFixed(2)}</span>
-                                            <button onclick="handleDeleteItem('${item.id}')" class="text-red-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
+                        <!-- 3. Current Menu List (Grouped & Collapsible) -->
+                        <div>
+                            <h2 class="font-bold text-xl mb-4 flex items-center gap-2"><i data-lucide="list" class="w-5 h-5 text-orange-600"></i> Current Menu</h2>
+                            ${groupedMenuHtml}
+                            ${uncategorizedHtml}
                         </div>
 
                     </div>
