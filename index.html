@@ -29,7 +29,8 @@ import {
   X,
   ArrowLeft,
   Flame,
-  Bell
+  AlertCircle,
+  WifiOff
 } from 'lucide-react';
 
 // --- Configuration ---
@@ -43,12 +44,17 @@ const FIREBASE_CONFIG = {
   measurementId: "G-D7SXMP1YS2"
 };
 
-// --- Initializing Firebase ---
-const app = initializeApp(FIREBASE_CONFIG);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// --- Initialize Firebase Safely ---
+let app, auth, db;
+try {
+  app = initializeApp(FIREBASE_CONFIG);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (e) {
+  console.error("Firebase Initialization Error:", e);
+}
 
-// --- Menu Data (Digitized from User CSV) ---
+// --- Menu Data (Expanded from your file) ---
 const MENU_DATA = [
   // Beverages
   { id: 'b1', name: 'Drink Of The Day', variant: '', category: 'Beverages', price: 0 },
@@ -64,12 +70,19 @@ const MENU_DATA = [
   { id: 'f5', name: 'Banana Leaf Set', variant: 'Prawn', category: 'Food', price: 14.9 },
   { id: 'f6', name: 'Banana Leaf Set', variant: 'Squid', category: 'Food', price: 14.9 },
   { id: 'f7', name: 'Banana Leaf Set', variant: 'Tauhu + Potato', category: 'Food', price: 14.9 },
+  { id: 'f8', name: 'Banana Leaf Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 14.9 },
+  { id: 'f9', name: 'Banana Leaf Set', variant: 'Mealmaker + Potato', category: 'Food', price: 14.9 },
   
   // Food - Student Sets
-  { id: 's1', name: 'Student Banana Leaf Set', variant: 'Vegetarian', category: 'Food', price: 12.9 },
-  { id: 's2', name: 'Student Banana Leaf Set', variant: 'Chicken', category: 'Food', price: 12.9 },
-  { id: 's3', name: 'Student Banana Leaf Set', variant: 'Mutton', category: 'Food', price: 12.9 },
-  { id: 's4', name: 'Student Banana Leaf Set', variant: 'Fish', category: 'Food', price: 12.9 },
+  { id: 's1', name: 'Student Set', variant: 'Vegetarian', category: 'Food', price: 12.9 },
+  { id: 's2', name: 'Student Set', variant: 'Chicken', category: 'Food', price: 12.9 },
+  { id: 's3', name: 'Student Set', variant: 'Mutton', category: 'Food', price: 12.9 },
+  { id: 's4', name: 'Student Set', variant: 'Fish', category: 'Food', price: 12.9 },
+  { id: 's5', name: 'Student Set', variant: 'Prawn', category: 'Food', price: 12.9 },
+  { id: 's6', name: 'Student Set', variant: 'Squid', category: 'Food', price: 12.9 },
+  { id: 's7', name: 'Student Set', variant: 'Tauhu + Potato', category: 'Food', price: 12.9 },
+  { id: 's8', name: 'Student Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 12.9 },
+  { id: 's9', name: 'Student Set', variant: 'Mealmaker + Potato', category: 'Food', price: 12.9 },
   
   // Food - Add Ons
   { id: 'a1', name: 'Chicken Add-On', variant: '', category: 'Food', price: 2 },
@@ -92,7 +105,6 @@ const MENU_DATA = [
 const CATEGORIES = ['Food', 'Beverages', 'Thinnai Time'];
 
 // --- Utility Components ---
-
 const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false }) => {
   const baseStyle = "px-4 py-2 rounded-lg font-semibold transition-all duration-200 active:scale-95 flex items-center justify-center gap-2";
   const variants = {
@@ -135,10 +147,26 @@ const Badge = ({ children, color = 'gray' }) => {
   );
 };
 
-// --- Main Application ---
+// --- Styles Injection for Animations ---
+const AnimationStyles = () => (
+  <style>{`
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-slide-up {
+      animation: slideUp 0.3s ease-out forwards;
+    }
+  `}</style>
+);
 
+// --- Main Application ---
 export default function OoruMessApp() {
   const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  
   const [view, setView] = useState('landing'); // landing, customer, kitchen
   const [cart, setCart] = useState([]);
   const [activeCategory, setActiveCategory] = useState('Food');
@@ -148,26 +176,51 @@ export default function OoruMessApp() {
   const [placingOrder, setPlacingOrder] = useState(false);
 
   // App ID for Firestore path
-  const appId = "ooru-mess-v1"; // Using a static ID for this demo to ensure consistent paths
+  const appId = "ooru-mess-v1";
 
   // --- Auth & Data Effects ---
   useEffect(() => {
     const initAuth = async () => {
-      await signInAnonymously(auth);
+      if (!auth) {
+        setAuthError("Firebase SDK not initialized correctly.");
+        setAuthLoading(false);
+        return;
+      }
+      try {
+        await signInAnonymously(auth);
+      } catch (err) {
+        console.error("Auth failed:", err);
+        setAuthError(err.message);
+        setAuthLoading(false);
+      }
     };
+    
     initAuth();
     
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsubscribe();
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (u) => {
+        setUser(u);
+        setAuthLoading(false);
+        if (u) setAuthError(null);
+      });
+      return () => unsubscribe();
+    }
   }, []);
 
+  // --- Order Listening (Real or Demo) ---
   useEffect(() => {
-    if (!user) return;
+    if (isDemoMode) {
+      // Mock orders for demo mode
+      setOrders([
+        { id: 'd1', tableNumber: '3', status: 'pending', items: [{name: 'Banana Leaf Set', variant: 'Chicken', quantity: 1}], timestamp: { toDate: () => new Date() } },
+        { id: 'd2', tableNumber: '5', status: 'cooking', items: [{name: 'Vadai Set', quantity: 2}], timestamp: { toDate: () => new Date(Date.now() - 1000 * 60 * 10) } }
+      ]);
+      return;
+    }
+
+    if (!user || !db) return;
     
-    // Listen to ALL orders for the kitchen view
-    // In a real app, you might split collections, but shared collection is fine for this scope
+    // Real Firestore listener
     const q = query(
       collection(db, 'artifacts', appId, 'public', 'data', 'orders'),
       orderBy('timestamp', 'desc')
@@ -181,13 +234,13 @@ export default function OoruMessApp() {
       setOrders(ordersData);
     }, (error) => {
       console.error("Error fetching orders:", error);
+      // If permission denied, likely rules issue
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isDemoMode]);
 
   // --- Customer Actions ---
-
   const addToCart = (item) => {
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
@@ -196,10 +249,6 @@ export default function OoruMessApp() {
       }
       return [...prev, { ...item, quantity: 1 }];
     });
-  };
-
-  const removeFromCart = (itemId) => {
-    setCart(prev => prev.filter(i => i.id !== itemId));
   };
 
   const updateQuantity = (itemId, delta) => {
@@ -219,6 +268,27 @@ export default function OoruMessApp() {
     if (!tableNumber || cart.length === 0) return;
     setPlacingOrder(true);
 
+    if (isDemoMode) {
+      // Simulate order placement in Demo Mode
+      setTimeout(() => {
+        const newOrder = {
+            id: `demo-${Date.now()}`,
+            tableNumber,
+            items: cart,
+            total: cartTotal,
+            status: 'pending',
+            timestamp: { toDate: () => new Date() }
+        };
+        setOrders(prev => [newOrder, ...prev]);
+        setCart([]);
+        setIsCheckoutModalOpen(false);
+        setTableNumber('');
+        alert("Demo Order Sent!");
+        setPlacingOrder(false);
+      }, 1000);
+      return;
+    }
+
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), {
         tableNumber,
@@ -232,18 +302,22 @@ export default function OoruMessApp() {
       setCart([]);
       setIsCheckoutModalOpen(false);
       setTableNumber('');
-      alert("Order Sent to Kitchen!"); // Simple feedback
+      alert("Order Sent to Kitchen!");
     } catch (err) {
       console.error("Error placing order:", err);
-      alert("Failed to place order. Please try again.");
+      alert(`Failed: ${err.message}. (Check if Firestore rules allow writing)`);
     } finally {
       setPlacingOrder(false);
     }
   };
 
   // --- Kitchen Actions ---
-
   const updateOrderStatus = async (orderId, newStatus) => {
+    if (isDemoMode) {
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      return;
+    }
+
     try {
       const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
       await updateDoc(orderRef, {
@@ -256,12 +330,65 @@ export default function OoruMessApp() {
 
   // --- Views ---
 
-  if (!user) return <div className="min-h-screen flex items-center justify-center bg-orange-50 text-orange-600 font-bold animate-pulse">Loading Ooru Mess...</div>;
+  // LOADING STATE
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50 text-orange-600 gap-4">
+        <Utensils className="w-12 h-12 animate-bounce" />
+        <div className="font-bold text-xl">Connecting to Ooru Mess...</div>
+      </div>
+    );
+  }
+
+  // ERROR / AUTH FAIL STATE
+  if (!user && !isDemoMode) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-200">
+           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+             <WifiOff className="w-8 h-8 text-red-500" />
+           </div>
+           <h2 className="text-2xl font-bold text-gray-800 mb-2">Connection Issue</h2>
+           <p className="text-gray-600 mb-6">
+             We couldn't connect to your Firebase backend. This usually happens if <strong>Anonymous Auth</strong> is disabled in your Firebase Console.
+           </p>
+           
+           <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-mono text-left mb-6 overflow-x-auto">
+             {authError || "Unknown connection error"}
+           </div>
+
+           <div className="space-y-3">
+             <button 
+               onClick={() => window.location.reload()}
+               className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800 transition"
+             >
+               Retry Connection
+             </button>
+             <button 
+               onClick={() => setIsDemoMode(true)}
+               className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 shadow-lg shadow-orange-200 transition"
+             >
+               Enter Demo Mode (Offline)
+             </button>
+           </div>
+           <p className="mt-4 text-xs text-gray-400">
+             Demo mode allows you to test the UI without a backend connection.
+           </p>
+        </div>
+      </div>
+    );
+  }
 
   // LANDING SCREEN
   if (view === 'landing') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex flex-col items-center justify-center p-6 text-white">
+      <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex flex-col items-center justify-center p-6 text-white relative">
+        <AnimationStyles />
+        {isDemoMode && (
+          <div className="absolute top-4 right-4 bg-orange-800/80 px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50 flex items-center gap-2">
+            <AlertCircle className="w-3 h-3" /> DEMO MODE
+          </div>
+        )}
         <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full text-center">
           <div className="bg-white rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 shadow-lg">
             <Utensils className="w-12 h-12 text-orange-600" />
@@ -294,6 +421,7 @@ export default function OoruMessApp() {
   if (view === 'customer') {
     return (
       <div className="min-h-screen bg-gray-50 pb-32">
+        <AnimationStyles />
         {/* Header */}
         <div className="bg-white sticky top-0 z-20 shadow-sm px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -452,6 +580,7 @@ export default function OoruMessApp() {
   if (view === 'kitchen') {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col">
+        <AnimationStyles />
         {/* Kitchen Header */}
         <div className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-50">
           <div className="flex items-center gap-4">
@@ -467,9 +596,10 @@ export default function OoruMessApp() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+             {isDemoMode && <div className="text-orange-400 text-xs font-bold border border-orange-500 px-2 py-1 rounded">DEMO MODE</div>}
              <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-               <span className="text-sm font-mono text-green-400">ONLINE</span>
+               <span className={`w-2 h-2 rounded-full ${isDemoMode ? 'bg-orange-500' : 'bg-green-500 animate-pulse'}`}></span>
+               <span className="text-sm font-mono text-green-400">{isDemoMode ? 'OFFLINE' : 'ONLINE'}</span>
              </div>
           </div>
         </div>
@@ -526,9 +656,7 @@ export default function OoruMessApp() {
 // --- Kitchen Ticket Component ---
 
 const KitchenTicket = ({ order, onUpdateStatus, readOnly = false }) => {
-  const timeString = order.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Just now';
-  
-  // Calculate duration if needed, for now just show timestamp
+  const timeString = order.timestamp?.toDate ? order.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
   
   const statusConfig = {
     pending: { color: 'border-l-4 border-l-blue-500', bg: 'bg-white' },
@@ -540,7 +668,7 @@ const KitchenTicket = ({ order, onUpdateStatus, readOnly = false }) => {
   const style = statusConfig[order.status] || statusConfig.pending;
 
   return (
-    <div className={`rounded-lg shadow-sm p-4 ${style.bg} ${style.color} transition-all duration-300 hover:shadow-md`}>
+    <div className={`rounded-lg shadow-sm p-4 ${style.bg} ${style.color} transition-all duration-300 hover:shadow-md animate-slide-up`}>
       <div className="flex justify-between items-start mb-3 border-b border-black/5 pb-2">
         <div>
            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Table</div>
@@ -603,4 +731,5 @@ const KitchenTicket = ({ order, onUpdateStatus, readOnly = false }) => {
     </div>
   );
 };
+
 
