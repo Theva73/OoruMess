@@ -1,735 +1,516 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  doc, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  serverTimestamp 
-} from 'firebase/firestore';
-import { 
-  ShoppingBag, 
-  ChefHat, 
-  Utensils, 
-  Coffee, 
-  Clock, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  CheckCircle, 
-  X,
-  ArrowLeft,
-  Flame,
-  AlertCircle,
-  WifiOff
-} from 'lucide-react';
-
-// --- Configuration ---
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAT-Q_8g-JHlE4GCPj4JjwgaOf7_fjWj0Y",
-  authDomain: "ooru-mess.firebaseapp.com",
-  projectId: "ooru-mess",
-  storageBucket: "ooru-mess.firebasestorage.app",
-  messagingSenderId: "416498252793",
-  appId: "1:416498252793:web:76d610bdb967953fb75b28",
-  measurementId: "G-D7SXMP1YS2"
-};
-
-// --- Initialize Firebase Safely ---
-let app, auth, db;
-try {
-  app = initializeApp(FIREBASE_CONFIG);
-  auth = getAuth(app);
-  db = getFirestore(app);
-} catch (e) {
-  console.error("Firebase Initialization Error:", e);
-}
-
-// --- Menu Data (Expanded from your file) ---
-const MENU_DATA = [
-  // Beverages
-  { id: 'b1', name: 'Drink Of The Day', variant: '', category: 'Beverages', price: 0 },
-  { id: 'b2', name: 'Coke', variant: '', category: 'Beverages', price: 2.5 },
-  { id: 'b3', name: 'Thinnai Tea', variant: '', category: 'Beverages', price: 5 },
-  { id: 'b4', name: 'Thinnai Coffee', variant: '', category: 'Beverages', price: 5 },
-  
-  // Food - Banana Leaf Sets
-  { id: 'f1', name: 'Banana Leaf Set', variant: 'Vegetarian', category: 'Food', price: 14.9 },
-  { id: 'f2', name: 'Banana Leaf Set', variant: 'Chicken', category: 'Food', price: 14.9 },
-  { id: 'f3', name: 'Banana Leaf Set', variant: 'Mutton', category: 'Food', price: 14.9 },
-  { id: 'f4', name: 'Banana Leaf Set', variant: 'Fish', category: 'Food', price: 14.9 },
-  { id: 'f5', name: 'Banana Leaf Set', variant: 'Prawn', category: 'Food', price: 14.9 },
-  { id: 'f6', name: 'Banana Leaf Set', variant: 'Squid', category: 'Food', price: 14.9 },
-  { id: 'f7', name: 'Banana Leaf Set', variant: 'Tauhu + Potato', category: 'Food', price: 14.9 },
-  { id: 'f8', name: 'Banana Leaf Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 14.9 },
-  { id: 'f9', name: 'Banana Leaf Set', variant: 'Mealmaker + Potato', category: 'Food', price: 14.9 },
-  
-  // Food - Student Sets
-  { id: 's1', name: 'Student Set', variant: 'Vegetarian', category: 'Food', price: 12.9 },
-  { id: 's2', name: 'Student Set', variant: 'Chicken', category: 'Food', price: 12.9 },
-  { id: 's3', name: 'Student Set', variant: 'Mutton', category: 'Food', price: 12.9 },
-  { id: 's4', name: 'Student Set', variant: 'Fish', category: 'Food', price: 12.9 },
-  { id: 's5', name: 'Student Set', variant: 'Prawn', category: 'Food', price: 12.9 },
-  { id: 's6', name: 'Student Set', variant: 'Squid', category: 'Food', price: 12.9 },
-  { id: 's7', name: 'Student Set', variant: 'Tauhu + Potato', category: 'Food', price: 12.9 },
-  { id: 's8', name: 'Student Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 12.9 },
-  { id: 's9', name: 'Student Set', variant: 'Mealmaker + Potato', category: 'Food', price: 12.9 },
-  
-  // Food - Add Ons
-  { id: 'a1', name: 'Chicken Add-On', variant: '', category: 'Food', price: 2 },
-  { id: 'a2', name: 'Mutton Add-On', variant: '', category: 'Food', price: 3 },
-  { id: 'a3', name: 'Fish Add-On', variant: '', category: 'Food', price: 4 },
-  { id: 'a4', name: 'Prawn Add-On', variant: '', category: 'Food', price: 4 },
-  { id: 'a5', name: 'Veg Add-On', variant: '', category: 'Food', price: 2 },
-  { id: 'a6', name: 'Kids Meal', variant: '', category: 'Food', price: 5 },
-
-  // Thinnai Time
-  { id: 't1', name: 'Vadai Set', variant: '', category: 'Thinnai Time', price: 5 },
-  { id: 't2', name: 'Vadai', variant: 'Single', category: 'Thinnai Time', price: 1.7 },
-  { id: 't3', name: 'Aloo Bonda', variant: '', category: 'Thinnai Time', price: 2 },
-  { id: 't4', name: 'Idli Set', variant: '', category: 'Thinnai Time', price: 5 },
-  { id: 't5', name: 'Idiyappam Set', variant: '', category: 'Thinnai Time', price: 5 },
-  { id: 't6', name: 'Egg Bonda', variant: '', category: 'Thinnai Time', price: 2.5 },
-  { id: 't7', name: 'Chappati Set', variant: '', category: 'Thinnai Time', price: 5 },
-];
-
-const CATEGORIES = ['Food', 'Beverages', 'Thinnai Time'];
-
-// --- Utility Components ---
-const Button = ({ children, onClick, variant = 'primary', className = '', disabled = false }) => {
-  const baseStyle = "px-4 py-2 rounded-lg font-semibold transition-all duration-200 active:scale-95 flex items-center justify-center gap-2";
-  const variants = {
-    primary: "bg-orange-600 text-white shadow-lg hover:bg-orange-700 disabled:bg-orange-300",
-    secondary: "bg-white text-orange-600 border-2 border-orange-100 hover:bg-orange-50",
-    outline: "border border-gray-300 text-gray-700 hover:bg-gray-50",
-    danger: "bg-red-50 text-red-600 hover:bg-red-100",
-    success: "bg-green-600 text-white hover:bg-green-700"
-  };
-
-  return (
-    <button 
-      onClick={onClick} 
-      className={`${baseStyle} ${variants[variant]} ${className}`}
-      disabled={disabled}
-    >
-      {children}
-    </button>
-  );
-};
-
-const Card = ({ children, className = '' }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
-    {children}
-  </div>
-);
-
-const Badge = ({ children, color = 'gray' }) => {
-  const colors = {
-    gray: 'bg-gray-100 text-gray-800',
-    green: 'bg-green-100 text-green-800',
-    orange: 'bg-orange-100 text-orange-800',
-    blue: 'bg-blue-100 text-blue-800',
-    yellow: 'bg-yellow-100 text-yellow-800'
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>
-      {children}
-    </span>
-  );
-};
-
-// --- Styles Injection for Animations ---
-const AnimationStyles = () => (
-  <style>{`
-    @keyframes slideUp {
-      from { transform: translateY(100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    .animate-slide-up {
-      animation: slideUp 0.3s ease-out forwards;
-    }
-  `}</style>
-);
-
-// --- Main Application ---
-export default function OoruMessApp() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authError, setAuthError] = useState(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-  
-  const [view, setView] = useState('landing'); // landing, customer, kitchen
-  const [cart, setCart] = useState([]);
-  const [activeCategory, setActiveCategory] = useState('Food');
-  const [orders, setOrders] = useState([]);
-  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
-  const [tableNumber, setTableNumber] = useState('');
-  const [placingOrder, setPlacingOrder] = useState(false);
-
-  // App ID for Firestore path
-  const appId = "ooru-mess-v1";
-
-  // --- Auth & Data Effects ---
-  useEffect(() => {
-    const initAuth = async () => {
-      if (!auth) {
-        setAuthError("Firebase SDK not initialized correctly.");
-        setAuthLoading(false);
-        return;
-      }
-      try {
-        await signInAnonymously(auth);
-      } catch (err) {
-        console.error("Auth failed:", err);
-        setAuthError(err.message);
-        setAuthLoading(false);
-      }
-    };
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ooru Mess | Digital Ordering</title>
     
-    initAuth();
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, (u) => {
-        setUser(u);
-        setAuthLoading(false);
-        if (u) setAuthError(null);
-      });
-      return () => unsubscribe();
-    }
-  }, []);
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-  // --- Order Listening (Real or Demo) ---
-  useEffect(() => {
-    if (isDemoMode) {
-      // Mock orders for demo mode
-      setOrders([
-        { id: 'd1', tableNumber: '3', status: 'pending', items: [{name: 'Banana Leaf Set', variant: 'Chicken', quantity: 1}], timestamp: { toDate: () => new Date() } },
-        { id: 'd2', tableNumber: '5', status: 'cooking', items: [{name: 'Vadai Set', quantity: 2}], timestamp: { toDate: () => new Date(Date.now() - 1000 * 60 * 10) } }
-      ]);
-      return;
-    }
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-    if (!user || !db) return;
-    
-    // Real Firestore listener
-    const q = query(
-      collection(db, 'artifacts', appId, 'public', 'data', 'orders'),
-      orderBy('timestamp', 'desc')
-    );
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+        
+        /* Animations */
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+        
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+        }
+        .pulse-status { animation: pulse-green 2s infinite; }
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setOrders(ordersData);
-    }, (error) => {
-      console.error("Error fetching orders:", error);
-      // If permission denied, likely rules issue
-    });
+        /* Hide scrollbar for category tabs */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
 
-    return () => unsubscribe();
-  }, [user, isDemoMode]);
+    <!-- App Container -->
+    <div id="app"></div>
 
-  // --- Customer Actions ---
-  const addToCart = (item) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.id === item.id);
-      if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
-      }
-      return [...prev, { ...item, quantity: 1 }];
-    });
-  };
+    <!-- Firebase Logic & App Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-  const updateQuantity = (itemId, delta) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return { ...item, quantity: Math.max(0, item.quantity + delta) };
-      }
-      return item;
-    }).filter(i => i.quantity > 0));
-  };
-
-  const cartTotal = useMemo(() => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  }, [cart]);
-
-  const handlePlaceOrder = async () => {
-    if (!tableNumber || cart.length === 0) return;
-    setPlacingOrder(true);
-
-    if (isDemoMode) {
-      // Simulate order placement in Demo Mode
-      setTimeout(() => {
-        const newOrder = {
-            id: `demo-${Date.now()}`,
-            tableNumber,
-            items: cart,
-            total: cartTotal,
-            status: 'pending',
-            timestamp: { toDate: () => new Date() }
+        // --- Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAT-Q_8g-JHlE4GCPj4JjwgaOf7_fjWj0Y",
+            authDomain: "ooru-mess.firebaseapp.com",
+            projectId: "ooru-mess",
+            storageBucket: "ooru-mess.firebasestorage.app",
+            messagingSenderId: "416498252793",
+            appId: "1:416498252793:web:76d610bdb967953fb75b28",
+            measurementId: "G-D7SXMP1YS2"
         };
-        setOrders(prev => [newOrder, ...prev]);
-        setCart([]);
-        setIsCheckoutModalOpen(false);
-        setTableNumber('');
-        alert("Demo Order Sent!");
-        setPlacingOrder(false);
-      }, 1000);
-      return;
-    }
 
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), {
-        tableNumber,
-        items: cart,
-        total: cartTotal,
-        status: 'pending', // pending, cooking, ready, served
-        timestamp: serverTimestamp(),
-        userId: user.uid
-      });
-      
-      setCart([]);
-      setIsCheckoutModalOpen(false);
-      setTableNumber('');
-      alert("Order Sent to Kitchen!");
-    } catch (err) {
-      console.error("Error placing order:", err);
-      alert(`Failed: ${err.message}. (Check if Firestore rules allow writing)`);
-    } finally {
-      setPlacingOrder(false);
-    }
-  };
+        // --- State Management ---
+        const state = {
+            view: 'landing', // landing, customer, kitchen
+            user: null,
+            orders: [],
+            cart: [],
+            activeCategory: 'Food',
+            isCheckoutOpen: false,
+            tableNumber: '',
+            isDemoMode: false,
+            loading: true
+        };
 
-  // --- Kitchen Actions ---
-  const updateOrderStatus = async (orderId, newStatus) => {
-    if (isDemoMode) {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-      return;
-    }
+        const MENU_DATA = [
+            // Beverages
+            { id: 'b1', name: 'Drink Of The Day', variant: '', category: 'Beverages', price: 0 },
+            { id: 'b2', name: 'Coke', variant: '', category: 'Beverages', price: 2.5 },
+            { id: 'b3', name: 'Thinnai Tea', variant: '', category: 'Beverages', price: 5 },
+            { id: 'b4', name: 'Thinnai Coffee', variant: '', category: 'Beverages', price: 5 },
+            // Food - Banana Leaf Sets
+            { id: 'f1', name: 'Banana Leaf Set', variant: 'Vegetarian', category: 'Food', price: 14.9 },
+            { id: 'f2', name: 'Banana Leaf Set', variant: 'Chicken', category: 'Food', price: 14.9 },
+            { id: 'f3', name: 'Banana Leaf Set', variant: 'Mutton', category: 'Food', price: 14.9 },
+            { id: 'f4', name: 'Banana Leaf Set', variant: 'Fish', category: 'Food', price: 14.9 },
+            { id: 'f5', name: 'Banana Leaf Set', variant: 'Prawn', category: 'Food', price: 14.9 },
+            { id: 'f6', name: 'Banana Leaf Set', variant: 'Squid', category: 'Food', price: 14.9 },
+            { id: 'f7', name: 'Banana Leaf Set', variant: 'Tauhu + Potato', category: 'Food', price: 14.9 },
+            { id: 'f8', name: 'Banana Leaf Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 14.9 },
+            { id: 'f9', name: 'Banana Leaf Set', variant: 'Mealmaker + Potato', category: 'Food', price: 14.9 },
+            // Food - Student Sets
+            { id: 's1', name: 'Student Set', variant: 'Vegetarian', category: 'Food', price: 12.9 },
+            { id: 's2', name: 'Student Set', variant: 'Chicken', category: 'Food', price: 12.9 },
+            { id: 's3', name: 'Student Set', variant: 'Mutton', category: 'Food', price: 12.9 },
+            { id: 's4', name: 'Student Set', variant: 'Fish', category: 'Food', price: 12.9 },
+            { id: 's5', name: 'Student Set', variant: 'Prawn', category: 'Food', price: 12.9 },
+            { id: 's6', name: 'Student Set', variant: 'Squid', category: 'Food', price: 12.9 },
+            { id: 's7', name: 'Student Set', variant: 'Tauhu + Potato', category: 'Food', price: 12.9 },
+            { id: 's8', name: 'Student Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 12.9 },
+            { id: 's9', name: 'Student Set', variant: 'Mealmaker + Potato', category: 'Food', price: 12.9 },
+            // Add Ons
+            { id: 'a1', name: 'Chicken Add-On', variant: '', category: 'Food', price: 2 },
+            { id: 'a2', name: 'Mutton Add-On', variant: '', category: 'Food', price: 3 },
+            { id: 'a3', name: 'Fish Add-On', variant: '', category: 'Food', price: 4 },
+            { id: 'a4', name: 'Prawn Add-On', variant: '', category: 'Food', price: 4 },
+            { id: 'a5', name: 'Veg Add-On', variant: '', category: 'Food', price: 2 },
+            { id: 'a6', name: 'Kids Meal', variant: '', category: 'Food', price: 5 },
+            // Thinnai Time
+            { id: 't1', name: 'Vadai Set', variant: '', category: 'Thinnai Time', price: 5 },
+            { id: 't2', name: 'Vadai', variant: 'Single', category: 'Thinnai Time', price: 1.7 },
+            { id: 't3', name: 'Aloo Bonda', variant: '', category: 'Thinnai Time', price: 2 },
+            { id: 't4', name: 'Idli Set', variant: '', category: 'Thinnai Time', price: 5 },
+            { id: 't5', name: 'Idiyappam Set', variant: '', category: 'Thinnai Time', price: 5 },
+            { id: 't6', name: 'Egg Bonda', variant: '', category: 'Thinnai Time', price: 2.5 },
+            { id: 't7', name: 'Chappati Set', variant: '', category: 'Thinnai Time', price: 5 },
+        ];
 
-    try {
-      const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
-      await updateDoc(orderRef, {
-        status: newStatus
-      });
-    } catch (err) {
-      console.error("Error updating status:", err);
-    }
-  };
+        // --- Initialization ---
+        let app, auth, db;
+        
+        async function init() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                await signInAnonymously(auth);
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        state.user = user;
+                        state.loading = false;
+                        setupOrdersListener();
+                        render();
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase init failed, switching to demo mode", error);
+                state.isDemoMode = true;
+                state.loading = false;
+                // Mock initial data for demo
+                state.orders = [
+                    { id: 'demo1', tableNumber: '5', status: 'pending', items: [{name: 'Banana Leaf Set', variant: 'Chicken', quantity: 1}], timestamp: { toDate: () => new Date() } },
+                    { id: 'demo2', tableNumber: '2', status: 'cooking', items: [{name: 'Vadai Set', quantity: 2}], timestamp: { toDate: () => new Date() } }
+                ];
+                render();
+            }
+        }
 
-  // --- Views ---
+        function setupOrdersListener() {
+            if (state.isDemoMode) return;
+            const q = query(collection(db, "artifacts", "ooru-mess-github", "public", "data", "orders"), orderBy("timestamp", "desc"));
+            onSnapshot(q, (snapshot) => {
+                state.orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                if (state.view === 'kitchen') render(); // Re-render kitchen on updates
+            });
+        }
 
-  // LOADING STATE
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50 text-orange-600 gap-4">
-        <Utensils className="w-12 h-12 animate-bounce" />
-        <div className="font-bold text-xl">Connecting to Ooru Mess...</div>
-      </div>
-    );
-  }
+        // --- Actions ---
 
-  // ERROR / AUTH FAIL STATE
-  if (!user && !isDemoMode) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-200">
-           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-             <WifiOff className="w-8 h-8 text-red-500" />
-           </div>
-           <h2 className="text-2xl font-bold text-gray-800 mb-2">Connection Issue</h2>
-           <p className="text-gray-600 mb-6">
-             We couldn't connect to your Firebase backend. This usually happens if <strong>Anonymous Auth</strong> is disabled in your Firebase Console.
-           </p>
-           
-           <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-mono text-left mb-6 overflow-x-auto">
-             {authError || "Unknown connection error"}
-           </div>
+        window.setView = (viewName) => {
+            state.view = viewName;
+            render();
+        };
 
-           <div className="space-y-3">
-             <button 
-               onClick={() => window.location.reload()}
-               className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800 transition"
-             >
-               Retry Connection
-             </button>
-             <button 
-               onClick={() => setIsDemoMode(true)}
-               className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 shadow-lg shadow-orange-200 transition"
-             >
-               Enter Demo Mode (Offline)
-             </button>
-           </div>
-           <p className="mt-4 text-xs text-gray-400">
-             Demo mode allows you to test the UI without a backend connection.
-           </p>
-        </div>
-      </div>
-    );
-  }
+        window.setCategory = (cat) => {
+            state.activeCategory = cat;
+            render();
+        };
 
-  // LANDING SCREEN
-  if (view === 'landing') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-500 to-red-600 flex flex-col items-center justify-center p-6 text-white relative">
-        <AnimationStyles />
-        {isDemoMode && (
-          <div className="absolute top-4 right-4 bg-orange-800/80 px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50 flex items-center gap-2">
-            <AlertCircle className="w-3 h-3" /> DEMO MODE
-          </div>
-        )}
-        <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full text-center">
-          <div className="bg-white rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 shadow-lg">
-            <Utensils className="w-12 h-12 text-orange-600" />
-          </div>
-          <h1 className="text-4xl font-bold mb-2">Ooru Mess</h1>
-          <p className="text-orange-100 mb-8">Authentic Banana Leaf Experience</p>
-          
-          <div className="space-y-4">
-            <button 
-              onClick={() => setView('customer')}
-              className="w-full bg-white text-orange-600 py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-orange-50 transform transition hover:scale-105 flex items-center justify-center gap-3"
-            >
-              <ShoppingBag className="w-6 h-6" />
-              Place an Order
-            </button>
-            <button 
-              onClick={() => setView('kitchen')}
-              className="w-full bg-orange-800/50 text-white border border-white/20 py-4 rounded-xl font-bold text-lg hover:bg-orange-800/70 transform transition hover:scale-105 flex items-center justify-center gap-3"
-            >
-              <ChefHat className="w-6 h-6" />
-              Kitchen Display
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+        window.addToCart = (itemId) => {
+            const item = MENU_DATA.find(i => i.id === itemId);
+            const existing = state.cart.find(i => i.id === itemId);
+            if (existing) {
+                existing.quantity++;
+            } else {
+                state.cart.push({ ...item, quantity: 1 });
+            }
+            render();
+        };
 
-  // CUSTOMER VIEW
-  if (view === 'customer') {
-    return (
-      <div className="min-h-screen bg-gray-50 pb-32">
-        <AnimationStyles />
-        {/* Header */}
-        <div className="bg-white sticky top-0 z-20 shadow-sm px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setView('landing')} className="p-2 -ml-2 text-gray-500 hover:text-gray-800">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="font-bold text-lg text-gray-800 leading-tight">Ooru Mess</h1>
-              <p className="text-xs text-green-600 font-medium flex items-center gap-1">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                Open for Ordering
-              </p>
-            </div>
-          </div>
-          <div className="relative">
-             <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-               <ShoppingBag className="w-4 h-4" />
-               {cartTotal.toFixed(2)}
-             </div>
-          </div>
-        </div>
+        window.updateQuantity = (itemId, change) => {
+            const item = state.cart.find(i => i.id === itemId);
+            if (!item) return;
+            item.quantity += change;
+            if (item.quantity <= 0) {
+                state.cart = state.cart.filter(i => i.id !== itemId);
+            }
+            render();
+        };
 
-        {/* Category Tabs */}
-        <div className="bg-white border-b border-gray-100 overflow-x-auto sticky top-[60px] z-10">
-          <div className="flex px-4 gap-6 min-w-max">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`py-3 text-sm font-semibold border-b-2 transition-colors ${
-                  activeCategory === cat 
-                    ? 'border-orange-500 text-orange-600' 
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
+        window.toggleCheckout = (isOpen) => {
+            state.isCheckoutOpen = isOpen;
+            render();
+        };
 
-        {/* Menu Grid */}
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {MENU_DATA.filter(i => i.category === activeCategory).map(item => (
-            <Card key={item.id} className="flex flex-col relative overflow-visible">
-              <div className="p-4 flex flex-row justify-between items-start gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                     {/* Icon based on category */}
-                     {item.category === 'Food' && <div className="p-1.5 bg-green-100 rounded-md"><Utensils className="w-4 h-4 text-green-700"/></div>}
-                     {item.category === 'Beverages' && <div className="p-1.5 bg-blue-100 rounded-md"><Coffee className="w-4 h-4 text-blue-700"/></div>}
-                     {item.category === 'Thinnai Time' && <div className="p-1.5 bg-yellow-100 rounded-md"><Clock className="w-4 h-4 text-yellow-700"/></div>}
-                     <h3 className="font-bold text-gray-800">{item.name}</h3>
-                  </div>
-                  
-                  {item.variant && (
-                    <p className="text-sm text-gray-500 mb-2 pl-9">{item.variant}</p>
-                  )}
-                  
-                  <div className="pl-9 mt-1">
-                    <span className="font-bold text-lg text-gray-900">RM {item.price.toFixed(2)}</span>
-                  </div>
+        window.setTableNumber = (num) => {
+            state.tableNumber = num;
+            // No full re-render needed, just updates state
+            // Re-render button state manually or full render
+            document.getElementById('confirmBtn').disabled = !num;
+            document.getElementById('confirmBtn').classList.toggle('opacity-50', !num);
+        };
+
+        window.placeOrder = async () => {
+            if (!state.tableNumber || state.cart.length === 0) return;
+            
+            const orderData = {
+                tableNumber: state.tableNumber,
+                items: state.cart,
+                total: state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                status: 'pending',
+                timestamp: serverTimestamp(),
+                userId: state.user ? state.user.uid : 'demo'
+            };
+
+            if (state.isDemoMode) {
+                orderData.timestamp = { toDate: () => new Date() };
+                orderData.id = 'demo-' + Date.now();
+                state.orders.unshift(orderData);
+                alert("Demo Order Placed!");
+            } else {
+                try {
+                    await addDoc(collection(db, "artifacts", "ooru-mess-github", "public", "data", "orders"), orderData);
+                    alert("Order sent to Kitchen!");
+                } catch (e) {
+                    alert("Error: " + e.message);
+                }
+            }
+
+            // Reset
+            state.cart = [];
+            state.tableNumber = '';
+            state.isCheckoutOpen = false;
+            render();
+        };
+
+        window.updateOrderStatus = async (orderId, newStatus) => {
+            if (state.isDemoMode) {
+                const order = state.orders.find(o => o.id === orderId);
+                if (order) order.status = newStatus;
+                render();
+                return;
+            }
+            try {
+                const orderRef = doc(db, "artifacts", "ooru-mess-github", "public", "data", "orders", orderId);
+                await updateDoc(orderRef, { status: newStatus });
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        // --- Render Functions ---
+
+        function render() {
+            const appEl = document.getElementById('app');
+            appEl.innerHTML = ''; // Clear
+
+            if (state.loading) {
+                appEl.innerHTML = `
+                    <div class="h-screen flex items-center justify-center flex-col text-orange-600">
+                        <i data-lucide="utensils" class="w-12 h-12 mb-4 animate-bounce"></i>
+                        <p class="font-bold">Loading Ooru Mess...</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            if (state.view === 'landing') {
+                renderLanding(appEl);
+            } else if (state.view === 'customer') {
+                renderCustomer(appEl);
+            } else if (state.view === 'kitchen') {
+                renderKitchen(appEl);
+            }
+            
+            lucide.createIcons();
+        }
+
+        function renderLanding(container) {
+            container.innerHTML = `
+                <div class="min-h-screen bg-gradient-to-br from-orange-600 to-red-700 flex items-center justify-center p-6 text-white">
+                    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-3xl border border-white/20 max-w-md w-full text-center shadow-2xl">
+                        <div class="w-20 h-20 bg-white text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                            <i data-lucide="utensils" class="w-10 h-10"></i>
+                        </div>
+                        <h1 class="text-4xl font-bold mb-2 tracking-tight">Ooru Mess</h1>
+                        <p class="text-orange-100 mb-8 font-light">Authentic Banana Leaf Experience</p>
+                        
+                        <div class="space-y-4">
+                            <button onclick="setView('customer')" class="w-full bg-white text-orange-600 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-3">
+                                <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+                                Place an Order
+                            </button>
+                            <button onclick="setView('kitchen')" class="w-full bg-black/20 hover:bg-black/30 text-white border border-white/30 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform flex items-center justify-center gap-3">
+                                <i data-lucide="chef-hat" class="w-6 h-6"></i>
+                                Kitchen Display
+                            </button>
+                        </div>
+                    </div>
                 </div>
+            `;
+        }
 
-                <div className="flex flex-col items-end gap-2">
-                   {cart.find(c => c.id === item.id) ? (
-                     <div className="flex flex-col items-center bg-gray-100 rounded-lg p-1">
-                       <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white rounded-md text-green-600"><Plus className="w-4 h-4"/></button>
-                       <span className="font-bold text-sm py-1">{cart.find(c => c.id === item.id).quantity}</span>
-                       <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white rounded-md text-red-600"><Minus className="w-4 h-4"/></button>
-                     </div>
-                   ) : (
-                     <Button onClick={() => addToCart(item)} variant="secondary" className="!px-3 !py-1.5 !text-sm">
-                       Add
-                     </Button>
-                   )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        function renderCustomer(container) {
+            const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
 
-        {/* Floating Cart Bar */}
-        {cart.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.1)] p-4 pb-8 z-30 animate-slide-up">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-gray-500 text-xs uppercase font-bold tracking-wider">{cart.reduce((a,b) => a + b.quantity, 0)} Items in Cart</span>
-                <span className="text-xl font-bold text-gray-900">Total: RM {cartTotal.toFixed(2)}</span>
-              </div>
-              <Button onClick={() => setIsCheckoutModalOpen(true)} className="px-8 shadow-orange-200 shadow-xl">
-                View Cart & Order
-              </Button>
-            </div>
-          </div>
-        )}
+            // Filter items
+            const visibleItems = MENU_DATA.filter(item => item.category === state.activeCategory);
 
-        {/* Checkout Modal */}
-        {isCheckoutModalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-orange-50 sm:rounded-t-2xl">
-                <h2 className="font-bold text-lg flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-orange-600"/> 
-                  Your Order
-                </h2>
-                <button onClick={() => setIsCheckoutModalOpen(false)} className="p-2 hover:bg-white rounded-full transition-colors"><X className="w-5 h-5"/></button>
-              </div>
-              
-              <div className="p-4 overflow-y-auto flex-1 space-y-4">
-                {cart.map(item => (
-                  <div key={item.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+            let itemsHtml = visibleItems.map(item => {
+                const inCart = state.cart.find(c => c.id === item.id);
+                const buttonHtml = inCart 
+                    ? `<div class="flex items-center bg-gray-100 rounded-lg p-1">
+                        <button onclick="updateQuantity('${item.id}', -1)" class="p-1 hover:bg-white rounded text-red-500"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                        <span class="font-bold px-3 text-sm">${inCart.quantity}</span>
+                        <button onclick="updateQuantity('${item.id}', 1)" class="p-1 hover:bg-white rounded text-green-600"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                       </div>`
+                    : `<button onclick="addToCart('${item.id}')" class="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-orange-100 transition">Add</button>`;
+
+                return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-start animate-slide-up">
                     <div>
-                      <div className="font-semibold text-gray-800">{item.name}</div>
-                      {item.variant && <div className="text-xs text-gray-500">{item.variant}</div>}
-                      <div className="text-sm font-medium text-orange-600 mt-1">RM {(item.price * item.quantity).toFixed(2)}</div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <h3 class="font-bold text-gray-800">${item.name}</h3>
+                        </div>
+                        ${item.variant ? `<p class="text-xs text-gray-500 mb-2">${item.variant}</p>` : ''}
+                        <span class="font-bold text-lg text-gray-900">RM ${item.price.toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center gap-3 bg-white border rounded-lg px-2 py-1 shadow-sm">
-                      <button onClick={() => updateQuantity(item.id, -1)} className="text-gray-400 hover:text-red-500"><Minus className="w-4 h-4"/></button>
-                      <span className="w-4 text-center text-sm font-bold">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="text-gray-400 hover:text-green-500"><Plus className="w-4 h-4"/></button>
-                    </div>
-                  </div>
-                ))}
+                    ${buttonHtml}
+                </div>`;
+            }).join('');
 
-                <div className="pt-4 border-t border-dashed border-gray-300">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Table Number <span className="text-red-500">*</span></label>
-                  <input 
-                    type="number" 
-                    value={tableNumber}
-                    onChange={(e) => setTableNumber(e.target.value)}
-                    placeholder="e.g., 5"
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-lg font-bold text-center tracking-widest"
-                  />
-                  <p className="text-xs text-gray-400 mt-2 text-center">Enter the number on your table stand.</p>
+            // Categories HTML
+            const categories = ['Food', 'Beverages', 'Thinnai Time'];
+            const tabsHtml = categories.map(cat => `
+                <button onclick="setCategory('${cat}')" 
+                    class="px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${state.activeCategory === cat ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500'}">
+                    ${cat}
+                </button>
+            `).join('');
+
+            // Checkout Modal HTML
+            let modalHtml = '';
+            if (state.isCheckoutOpen) {
+                const cartItemsHtml = state.cart.map(item => `
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg mb-2">
+                        <div>
+                            <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                            <div class="text-xs text-gray-500">${item.variant}</div>
+                            <div class="text-xs font-bold text-orange-600 mt-1">RM ${(item.price * item.quantity).toFixed(2)}</div>
+                        </div>
+                        <div class="flex items-center gap-2 bg-white border rounded px-2 py-1">
+                            <button onclick="updateQuantity('${item.id}', -1)" class="text-red-500"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                            <span class="text-xs font-bold w-4 text-center">${item.quantity}</span>
+                            <button onclick="updateQuantity('${item.id}', 1)" class="text-green-500"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+
+                modalHtml = `
+                <div class="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm">
+                    <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
+                        <div class="p-4 border-b flex justify-between items-center bg-orange-50 sm:rounded-t-2xl">
+                            <h2 class="font-bold flex items-center gap-2"><i data-lucide="shopping-bag" class="w-4 h-4"></i> Your Order</h2>
+                            <button onclick="toggleCheckout(false)" class="p-2 hover:bg-white rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        </div>
+                        <div class="p-4 overflow-y-auto flex-1">
+                            ${state.cart.length ? cartItemsHtml : '<p class="text-center text-gray-400 py-4">Cart is empty</p>'}
+                            ${state.cart.length ? `
+                            <div class="mt-4 pt-4 border-t border-dashed border-gray-300">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Table Number *</label>
+                                <input type="number" oninput="setTableNumber(this.value)" placeholder="e.g. 5" class="w-full p-3 border rounded-xl text-center text-lg font-bold outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>` : ''}
+                        </div>
+                        <div class="p-4 border-t bg-gray-50 sm:rounded-b-2xl">
+                            <button id="confirmBtn" onclick="placeOrder()" disabled class="w-full bg-orange-600 text-white py-3 rounded-xl font-bold shadow-lg opacity-50 transition-opacity">
+                                Place Order • RM ${cartTotal.toFixed(2)}
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            // Floating Cart Bar
+            let floatingCart = '';
+            if (cartCount > 0 && !state.isCheckoutOpen) {
+                floatingCart = `
+                <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+                    <div class="max-w-4xl mx-auto flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-500 font-bold uppercase">${cartCount} Items</p>
+                            <p class="text-xl font-bold text-gray-900">Total: RM ${cartTotal.toFixed(2)}</p>
+                        </div>
+                        <button onclick="toggleCheckout(true)" class="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-700">View Cart</button>
+                    </div>
+                </div>`;
+            }
+
+            container.innerHTML = `
+                <div class="pb-24">
+                    <!-- Header -->
+                    <div class="bg-white sticky top-0 z-20 px-4 py-3 shadow-sm flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <button onclick="setView('landing')" class="text-gray-500 hover:text-black"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                            <h1 class="font-bold text-lg">Ooru Mess</h1>
+                        </div>
+                        <div class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> OPEN
+                        </div>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="bg-white sticky top-[56px] z-10 overflow-x-auto hide-scrollbar flex px-4 border-b gap-2">
+                        ${tabsHtml}
+                    </div>
+
+                    <!-- Grid -->
+                    <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        ${itemsHtml}
+                    </div>
+
+                    ${floatingCart}
+                    ${modalHtml}
                 </div>
-              </div>
+            `;
+        }
 
-              <div className="p-4 border-t border-gray-100 bg-gray-50 sm:rounded-b-2xl">
-                <Button 
-                  onClick={handlePlaceOrder} 
-                  disabled={!tableNumber || placingOrder}
-                  className="w-full py-4 text-lg shadow-xl"
-                >
-                  {placingOrder ? 'Sending Order...' : `Confirm • RM ${cartTotal.toFixed(2)}`}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
+        function renderKitchen(container) {
+            const pendingOrders = state.orders.filter(o => o.status === 'pending');
+            const cookingOrders = state.orders.filter(o => o.status === 'cooking');
+            const readyOrders = state.orders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5); // Show last 5
 
-  // KITCHEN VIEW
-  if (view === 'kitchen') {
-    return (
-      <div className="min-h-screen bg-slate-100 flex flex-col">
-        <AnimationStyles />
-        {/* Kitchen Header */}
-        <div className="bg-slate-900 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-50">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setView('landing')} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold flex items-center gap-2">
-                <ChefHat className="text-orange-500" />
-                Kitchen Display System
-              </h1>
-              <p className="text-slate-400 text-xs">Ooru Mess • Live Feed</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-             {isDemoMode && <div className="text-orange-400 text-xs font-bold border border-orange-500 px-2 py-1 rounded">DEMO MODE</div>}
-             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-               <span className={`w-2 h-2 rounded-full ${isDemoMode ? 'bg-orange-500' : 'bg-green-500 animate-pulse'}`}></span>
-               <span className="text-sm font-mono text-green-400">{isDemoMode ? 'OFFLINE' : 'ONLINE'}</span>
-             </div>
-          </div>
-        </div>
+            const renderCard = (order, type) => {
+                const timeStr = order.timestamp && order.timestamp.toDate ? order.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Now';
+                
+                let actions = '';
+                if (type === 'pending') {
+                    actions = `<button onclick="updateOrderStatus('${order.id}', 'cooking')" class="w-full mt-3 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 flex items-center justify-center gap-2"><i data-lucide="flame" class="w-4 h-4"></i> Start Cooking</button>`;
+                } else if (type === 'cooking') {
+                    actions = `<button onclick="updateOrderStatus('${order.id}', 'ready')" class="w-full mt-3 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Mark Ready</button>`;
+                } else if (type === 'ready' && order.status !== 'served') {
+                    actions = `<button onclick="updateOrderStatus('${order.id}', 'served')" class="w-full mt-3 bg-gray-700 text-white py-2 rounded-lg font-bold text-sm hover:bg-gray-800">Mark Served</button>`;
+                }
 
-        {/* Kanban Board */}
-        <div className="flex-1 overflow-x-auto p-6">
-           <div className="flex gap-6 min-w-max h-full">
-             
-             {/* New Orders Column */}
-             <div className="w-80 sm:w-96 flex flex-col gap-4">
-               <div className="flex items-center justify-between pb-2 border-b-2 border-blue-500 mb-2">
-                 <h2 className="font-bold text-slate-700 text-lg uppercase tracking-wide">Pending</h2>
-                 <Badge color="blue">{orders.filter(o => o.status === 'pending').length}</Badge>
-               </div>
-               {orders.filter(o => o.status === 'pending').map(order => (
-                 <KitchenTicket key={order.id} order={order} onUpdateStatus={updateOrderStatus} />
-               ))}
-               {orders.filter(o => o.status === 'pending').length === 0 && (
-                 <div className="text-center py-10 text-slate-400 italic bg-white/50 rounded-xl border-2 border-dashed border-slate-200">No pending orders</div>
-               )}
-             </div>
+                return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${type==='pending'?'border-blue-500':type==='cooking'?'border-orange-500':'border-green-500'} mb-4 animate-slide-up">
+                    <div class="flex justify-between items-start mb-2 border-b pb-2">
+                        <div>
+                            <span class="text-xs font-bold text-gray-500 uppercase">Table</span>
+                            <div class="text-2xl font-black text-gray-800">${order.tableNumber}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-medium text-gray-400 flex items-center justify-end gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${timeStr}</span>
+                            <span class="text-xs font-bold uppercase px-2 py-0.5 rounded text-white ${type==='pending'?'bg-blue-500':type==='cooking'?'bg-orange-500':'bg-green-500'}">${order.status}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        ${order.items.map(i => `
+                            <div class="flex gap-2 text-sm">
+                                <span class="font-bold bg-gray-100 px-1.5 rounded h-fit">${i.quantity}x</span>
+                                <div>
+                                    <span class="font-medium text-gray-800">${i.name}</span>
+                                    ${i.variant ? `<span class="text-xs text-gray-500 block">${i.variant}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${actions}
+                </div>`;
+            };
 
-             {/* Cooking Column */}
-             <div className="w-80 sm:w-96 flex flex-col gap-4">
-               <div className="flex items-center justify-between pb-2 border-b-2 border-orange-500 mb-2">
-                 <h2 className="font-bold text-slate-700 text-lg uppercase tracking-wide">Cooking</h2>
-                 <Badge color="orange">{orders.filter(o => o.status === 'cooking').length}</Badge>
-               </div>
-               {orders.filter(o => o.status === 'cooking').map(order => (
-                 <KitchenTicket key={order.id} order={order} onUpdateStatus={updateOrderStatus} />
-               ))}
-             </div>
+            container.innerHTML = `
+                <div class="min-h-screen bg-slate-100 flex flex-col">
+                    <div class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md">
+                        <div class="flex items-center gap-4">
+                            <button onclick="setView('landing')" class="text-slate-400 hover:text-white"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+                            <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="chef-hat" class="text-orange-500"></i> KDS</h1>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full ${state.isDemoMode ? 'bg-orange-500' : 'bg-green-500 pulse-status'}"></span>
+                            <span class="text-xs font-mono text-slate-400">${state.isDemoMode ? 'DEMO' : 'LIVE'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-x-auto p-4">
+                        <div class="flex gap-4 min-w-[900px]">
+                            <!-- Pending -->
+                            <div class="flex-1 min-w-[300px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between">Pending <span class="bg-blue-100 text-blue-800 px-2 rounded-full text-xs flex items-center">${pendingOrders.length}</span></h2>
+                                ${pendingOrders.map(o => renderCard(o, 'pending')).join('') || '<div class="text-center text-slate-400 italic py-10 border-2 border-dashed rounded-xl">No pending orders</div>'}
+                            </div>
+                            
+                            <!-- Cooking -->
+                            <div class="flex-1 min-w-[300px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between">Cooking <span class="bg-orange-100 text-orange-800 px-2 rounded-full text-xs flex items-center">${cookingOrders.length}</span></h2>
+                                ${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}
+                            </div>
 
-             {/* Ready/Served History (Last 5) */}
-             <div className="w-80 sm:w-96 flex flex-col gap-4">
-               <div className="flex items-center justify-between pb-2 border-b-2 border-green-500 mb-2">
-                 <h2 className="font-bold text-slate-700 text-lg uppercase tracking-wide">Ready / Served</h2>
-                 <Badge color="green">{orders.filter(o => ['ready', 'served'].includes(o.status)).length}</Badge>
-               </div>
-               {orders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5).map(order => (
-                 <KitchenTicket key={order.id} order={order} onUpdateStatus={updateOrderStatus} readOnly={order.status === 'served'} />
-               ))}
-             </div>
+                            <!-- Done -->
+                            <div class="flex-1 min-w-[300px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between">Ready / Served <span class="bg-green-100 text-green-800 px-2 rounded-full text-xs flex items-center">${readyOrders.length}</span></h2>
+                                ${readyOrders.map(o => renderCard(o, 'ready')).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
-           </div>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-// --- Kitchen Ticket Component ---
-
-const KitchenTicket = ({ order, onUpdateStatus, readOnly = false }) => {
-  const timeString = order.timestamp?.toDate ? order.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
-  
-  const statusConfig = {
-    pending: { color: 'border-l-4 border-l-blue-500', bg: 'bg-white' },
-    cooking: { color: 'border-l-4 border-l-orange-500', bg: 'bg-orange-50' },
-    ready: { color: 'border-l-4 border-l-green-500', bg: 'bg-green-50' },
-    served: { color: 'border-l-4 border-l-gray-300 opacity-60', bg: 'bg-gray-100' }
-  };
-
-  const style = statusConfig[order.status] || statusConfig.pending;
-
-  return (
-    <div className={`rounded-lg shadow-sm p-4 ${style.bg} ${style.color} transition-all duration-300 hover:shadow-md animate-slide-up`}>
-      <div className="flex justify-between items-start mb-3 border-b border-black/5 pb-2">
-        <div>
-           <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Table</div>
-           <div className="text-3xl font-black text-gray-800 leading-none">{order.tableNumber}</div>
-        </div>
-        <div className="text-right">
-          <div className="flex items-center gap-1 text-xs font-medium text-gray-500 justify-end">
-            <Clock className="w-3 h-3" /> {timeString}
-          </div>
-          <div className="mt-1">
-             {order.status === 'pending' && <span className="text-xs font-bold text-white bg-blue-500 px-2 py-0.5 rounded">NEW</span>}
-             {order.status === 'cooking' && <span className="text-xs font-bold text-white bg-orange-500 px-2 py-0.5 rounded flex items-center gap-1"><Flame className="w-3 h-3"/> COOKING</span>}
-             {order.status === 'ready' && <span className="text-xs font-bold text-white bg-green-500 px-2 py-0.5 rounded">READY</span>}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2 mb-4">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between items-start text-sm">
-            <div className="flex gap-2">
-               <span className="font-bold text-gray-800 bg-gray-200 px-1.5 rounded h-fit">{item.quantity}x</span>
-               <div>
-                 <span className="text-gray-800 font-medium block">{item.name}</span>
-                 {item.variant && <span className="text-gray-500 text-xs italic">{item.variant}</span>}
-               </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {!readOnly && (
-        <div className="grid grid-cols-1 gap-2 mt-2 pt-2 border-t border-black/5">
-          {order.status === 'pending' && (
-            <button 
-              onClick={() => onUpdateStatus(order.id, 'cooking')}
-              className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded font-bold text-sm flex items-center justify-center gap-2"
-            >
-              Start Cooking <Flame className="w-4 h-4"/>
-            </button>
-          )}
-          {order.status === 'cooking' && (
-            <button 
-              onClick={() => onUpdateStatus(order.id, 'ready')}
-              className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded font-bold text-sm flex items-center justify-center gap-2"
-            >
-              Mark Ready <CheckCircle className="w-4 h-4"/>
-            </button>
-          )}
-          {order.status === 'ready' && (
-            <button 
-              onClick={() => onUpdateStatus(order.id, 'served')}
-              className="w-full py-2 bg-gray-700 hover:bg-gray-800 text-white rounded font-bold text-sm"
-            >
-              Mark Served
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
+        // Start App
+        init();
+    </script>
+</body>
+</html>
 
