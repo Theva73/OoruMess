@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ooru Mess | Digital Ordering</title>
     
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍛</text></svg>">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -17,7 +19,6 @@
     <style>
         body { font-family: 'Poppins', sans-serif; }
         
-        /* Animations */
         @keyframes slideUp {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -31,21 +32,19 @@
         }
         .pulse-status { animation: pulse-green 2s infinite; }
 
-        /* Hide scrollbar for category tabs */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen">
 
-    <!-- App Container -->
     <div id="app"></div>
 
-    <!-- Firebase Logic & App Script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // --- Configuration ---
         const firebaseConfig = {
@@ -58,106 +57,188 @@
             measurementId: "G-D7SXMP1YS2"
         };
 
+        // --- Default Data for Seeding ---
+        const DEFAULT_CATEGORIES = [
+            { id: 'cat1', name: 'Banana Leaf', order: 1 },
+            { id: 'cat2', name: 'Student Sets', order: 2 },
+            { id: 'cat3', name: 'Thinnai Time', order: 3 },
+            { id: 'cat4', name: 'Beverages', order: 4 },
+            { id: 'cat5', name: 'Add-ons', order: 5 }
+        ];
+
+        const DEFAULT_MENU = [
+            { name: 'Banana Leaf Set', variant: 'Vegetarian', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Chicken', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Mutton', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Fish', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Prawn', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Squid', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Tauhu + Potato', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Tauhu + MealMaker', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Banana Leaf Set', variant: 'Mealmaker + Potato', category: 'Banana Leaf', price: 14.9 },
+            { name: 'Student Set', variant: 'Vegetarian', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Chicken', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Mutton', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Fish', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Prawn', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Squid', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Tauhu + Potato', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Tauhu + MealMaker', category: 'Student Sets', price: 12.9 },
+            { name: 'Student Set', variant: 'Mealmaker + Potato', category: 'Student Sets', price: 12.9 },
+            { name: 'Vadai Set', variant: '', category: 'Thinnai Time', price: 5 },
+            { name: 'Vadai', variant: 'Single', category: 'Thinnai Time', price: 1.7 },
+            { name: 'Aloo Bonda', variant: '', category: 'Thinnai Time', price: 2 },
+            { name: 'Idli Set', variant: '', category: 'Thinnai Time', price: 5 },
+            { name: 'Idiyappam Set', variant: '', category: 'Thinnai Time', price: 5 },
+            { name: 'Egg Bonda', variant: '', category: 'Thinnai Time', price: 2.5 },
+            { name: 'Chappati Set', variant: '', category: 'Thinnai Time', price: 5 },
+            { name: 'Drink Of The Day', variant: '', category: 'Beverages', price: 0 },
+            { name: 'Coke', variant: '', category: 'Beverages', price: 2.5 },
+            { name: 'Thinnai Tea', variant: '', category: 'Beverages', price: 5 },
+            { name: 'Thinnai Coffee', variant: '', category: 'Beverages', price: 5 },
+            { name: 'Chicken Add-On', variant: '', category: 'Add-ons', price: 2 },
+            { name: 'Mutton Add-On', variant: '', category: 'Add-ons', price: 3 },
+            { name: 'Fish Add-On', variant: '', category: 'Add-ons', price: 4 },
+            { name: 'Prawn Add-On', variant: '', category: 'Add-ons', price: 4 },
+            { name: 'Veg Add-On', variant: '', category: 'Add-ons', price: 2 },
+            { name: 'Kids Meal', variant: '', category: 'Add-ons', price: 5 },
+        ];
+
         // --- State Management ---
         const state = {
-            view: 'landing', // landing, customer, kitchen
+            view: 'landing', // landing, customer, kitchen, admin
             user: null,
             orders: [],
             cart: [],
-            activeCategory: 'Food',
+            menuItems: [],
+            categories: [],
+            activeCategory: 'Banana Leaf',
             isCheckoutOpen: false,
             tableNumber: '',
             isDemoMode: false,
-            loading: true
+            loading: true,
+            error: null,
+            adminPin: '',
+            adminError: '',
+            newCategoryName: '',
+            newItem: { name: '', variant: '', price: '', category: '' }
         };
-
-        const MENU_DATA = [
-            // Beverages
-            { id: 'b1', name: 'Drink Of The Day', variant: '', category: 'Beverages', price: 0 },
-            { id: 'b2', name: 'Coke', variant: '', category: 'Beverages', price: 2.5 },
-            { id: 'b3', name: 'Thinnai Tea', variant: '', category: 'Beverages', price: 5 },
-            { id: 'b4', name: 'Thinnai Coffee', variant: '', category: 'Beverages', price: 5 },
-            // Food - Banana Leaf Sets
-            { id: 'f1', name: 'Banana Leaf Set', variant: 'Vegetarian', category: 'Food', price: 14.9 },
-            { id: 'f2', name: 'Banana Leaf Set', variant: 'Chicken', category: 'Food', price: 14.9 },
-            { id: 'f3', name: 'Banana Leaf Set', variant: 'Mutton', category: 'Food', price: 14.9 },
-            { id: 'f4', name: 'Banana Leaf Set', variant: 'Fish', category: 'Food', price: 14.9 },
-            { id: 'f5', name: 'Banana Leaf Set', variant: 'Prawn', category: 'Food', price: 14.9 },
-            { id: 'f6', name: 'Banana Leaf Set', variant: 'Squid', category: 'Food', price: 14.9 },
-            { id: 'f7', name: 'Banana Leaf Set', variant: 'Tauhu + Potato', category: 'Food', price: 14.9 },
-            { id: 'f8', name: 'Banana Leaf Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 14.9 },
-            { id: 'f9', name: 'Banana Leaf Set', variant: 'Mealmaker + Potato', category: 'Food', price: 14.9 },
-            // Food - Student Sets
-            { id: 's1', name: 'Student Set', variant: 'Vegetarian', category: 'Food', price: 12.9 },
-            { id: 's2', name: 'Student Set', variant: 'Chicken', category: 'Food', price: 12.9 },
-            { id: 's3', name: 'Student Set', variant: 'Mutton', category: 'Food', price: 12.9 },
-            { id: 's4', name: 'Student Set', variant: 'Fish', category: 'Food', price: 12.9 },
-            { id: 's5', name: 'Student Set', variant: 'Prawn', category: 'Food', price: 12.9 },
-            { id: 's6', name: 'Student Set', variant: 'Squid', category: 'Food', price: 12.9 },
-            { id: 's7', name: 'Student Set', variant: 'Tauhu + Potato', category: 'Food', price: 12.9 },
-            { id: 's8', name: 'Student Set', variant: 'Tauhu + MealMaker', category: 'Food', price: 12.9 },
-            { id: 's9', name: 'Student Set', variant: 'Mealmaker + Potato', category: 'Food', price: 12.9 },
-            // Add Ons
-            { id: 'a1', name: 'Chicken Add-On', variant: '', category: 'Food', price: 2 },
-            { id: 'a2', name: 'Mutton Add-On', variant: '', category: 'Food', price: 3 },
-            { id: 'a3', name: 'Fish Add-On', variant: '', category: 'Food', price: 4 },
-            { id: 'a4', name: 'Prawn Add-On', variant: '', category: 'Food', price: 4 },
-            { id: 'a5', name: 'Veg Add-On', variant: '', category: 'Food', price: 2 },
-            { id: 'a6', name: 'Kids Meal', variant: '', category: 'Food', price: 5 },
-            // Thinnai Time
-            { id: 't1', name: 'Vadai Set', variant: '', category: 'Thinnai Time', price: 5 },
-            { id: 't2', name: 'Vadai', variant: 'Single', category: 'Thinnai Time', price: 1.7 },
-            { id: 't3', name: 'Aloo Bonda', variant: '', category: 'Thinnai Time', price: 2 },
-            { id: 't4', name: 'Idli Set', variant: '', category: 'Thinnai Time', price: 5 },
-            { id: 't5', name: 'Idiyappam Set', variant: '', category: 'Thinnai Time', price: 5 },
-            { id: 't6', name: 'Egg Bonda', variant: '', category: 'Thinnai Time', price: 2.5 },
-            { id: 't7', name: 'Chappati Set', variant: '', category: 'Thinnai Time', price: 5 },
-        ];
 
         // --- Initialization ---
         let app, auth, db;
         
         async function init() {
+            if (window.location.protocol === 'file:') {
+                handleError({
+                    code: 'protocol-error',
+                    message: 'Security Warning: File protocol detected. Please host on GitHub Pages or local server.'
+                });
+                return;
+            }
+
             try {
                 app = initializeApp(firebaseConfig);
+                try { getAnalytics(app); } catch(e) {}
+                
                 auth = getAuth(app);
                 db = getFirestore(app);
                 
                 await signInAnonymously(auth);
                 
-                onAuthStateChanged(auth, (user) => {
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         state.user = user;
-                        state.loading = false;
-                        setupOrdersListener();
-                        render();
+                        // Start Listeners
+                        setupDataListeners();
                     }
                 });
             } catch (error) {
-                console.error("Firebase init failed, switching to demo mode", error);
-                state.isDemoMode = true;
-                state.loading = false;
-                // Mock initial data for demo
-                state.orders = [
-                    { id: 'demo1', tableNumber: '5', status: 'pending', items: [{name: 'Banana Leaf Set', variant: 'Chicken', quantity: 1}], timestamp: { toDate: () => new Date() } },
-                    { id: 'demo2', tableNumber: '2', status: 'cooking', items: [{name: 'Vadai Set', quantity: 2}], timestamp: { toDate: () => new Date() } }
-                ];
-                render();
+                handleError(error);
             }
         }
 
-        function setupOrdersListener() {
-            if (state.isDemoMode) return;
-            const q = query(collection(db, "artifacts", "ooru-mess-github", "public", "data", "orders"), orderBy("timestamp", "desc"));
-            onSnapshot(q, (snapshot) => {
-                state.orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (state.view === 'kitchen') render(); // Re-render kitchen on updates
+        function handleError(error) {
+            console.warn("App Error:", error);
+            state.loading = false;
+            state.error = error;
+            render();
+        }
+
+        function setupDataListeners() {
+            if (state.isDemoMode) {
+                // Demo Data
+                state.categories = DEFAULT_CATEGORIES;
+                state.menuItems = DEFAULT_MENU.map((item, i) => ({...item, id: 'demo'+i}));
+                state.orders = [];
+                state.loading = false;
+                render();
+                return;
+            }
+
+            const basePath = "artifacts/ooru-mess-github/public/data";
+
+            // 1. Listen to Categories
+            onSnapshot(query(collection(db, basePath, "categories"), orderBy("order")), (snap) => {
+                state.categories = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                if(state.categories.length === 0) {
+                    seedDatabase(); // Auto-seed if empty
+                } else if (!state.activeCategory && state.categories.length > 0) {
+                    state.activeCategory = state.categories[0].name;
+                }
+                render();
             });
+
+            // 2. Listen to Menu
+            onSnapshot(collection(db, basePath, "menu"), (snap) => {
+                state.menuItems = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                state.loading = false;
+                render();
+            });
+
+            // 3. Listen to Orders
+            onSnapshot(query(collection(db, basePath, "orders"), orderBy("timestamp", "desc")), (snap) => {
+                state.orders = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                if (state.view === 'kitchen') render();
+            }, (err) => {
+                if (err.code === 'permission-denied') {
+                    handleError({code: 'permission-denied', message: 'Permission Denied.'});
+                }
+            });
+        }
+
+        async function seedDatabase() {
+            console.log("Seeding Database...");
+            const basePath = "artifacts/ooru-mess-github/public/data";
+            const batch = writeBatch(db);
+
+            // Add Categories
+            DEFAULT_CATEGORIES.forEach(cat => {
+                const ref = doc(collection(db, basePath, "categories"));
+                batch.set(ref, cat);
+            });
+
+            // Add Menu
+            DEFAULT_MENU.forEach(item => {
+                const ref = doc(collection(db, basePath, "menu"));
+                batch.set(ref, item);
+            });
+
+            await batch.commit();
+            console.log("Database Seeded!");
         }
 
         // --- Actions ---
 
         window.setView = (viewName) => {
+            if (viewName === 'admin' && !state.adminAuthenticated) {
+                const pin = prompt("Enter Admin PIN (Default: 1234)");
+                if (pin === "1234") {
+                    state.adminAuthenticated = true;
+                } else {
+                    alert("Incorrect PIN");
+                    return;
+                }
+            }
             state.view = viewName;
             render();
         };
@@ -168,7 +249,7 @@
         };
 
         window.addToCart = (itemId) => {
-            const item = MENU_DATA.find(i => i.id === itemId);
+            const item = state.menuItems.find(i => i.id === itemId);
             const existing = state.cart.find(i => i.id === itemId);
             if (existing) {
                 existing.quantity++;
@@ -195,11 +276,59 @@
 
         window.setTableNumber = (num) => {
             state.tableNumber = num;
-            // No full re-render needed, just updates state
-            // Re-render button state manually or full render
-            document.getElementById('confirmBtn').disabled = !num;
-            document.getElementById('confirmBtn').classList.toggle('opacity-50', !num);
+            render(); // Re-render to update button state
         };
+
+        window.enterDemoMode = () => {
+            state.isDemoMode = true;
+            state.error = null;
+            state.view = 'landing';
+            setupDataListeners(); // Load demo data
+        };
+
+        // --- Admin Actions ---
+
+        window.handleAddCategory = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('newCatName').value;
+            if(!name) return;
+            
+            const basePath = "artifacts/ooru-mess-github/public/data";
+            await addDoc(collection(db, basePath, "categories"), {
+                name: name,
+                order: state.categories.length + 1
+            });
+            document.getElementById('newCatName').value = '';
+        };
+
+        window.handleAddItem = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('itemName').value;
+            const variant = document.getElementById('itemVariant').value;
+            const price = parseFloat(document.getElementById('itemPrice').value);
+            const category = document.getElementById('itemCategory').value;
+
+            if(!name || !price || !category) return;
+
+            const basePath = "artifacts/ooru-mess-github/public/data";
+            await addDoc(collection(db, basePath, "menu"), {
+                name, variant, price, category
+            });
+            
+            // Reset form
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemVariant').value = '';
+            document.getElementById('itemPrice').value = '';
+            alert("Item Added Successfully!");
+        };
+
+        window.handleDeleteItem = async (id) => {
+            if(!confirm("Are you sure you want to delete this item?")) return;
+            const basePath = "artifacts/ooru-mess-github/public/data";
+            await deleteDoc(doc(db, basePath, "menu", id));
+        };
+
+        // --- Order Logic ---
 
         window.placeOrder = async () => {
             if (!state.tableNumber || state.cart.length === 0) return;
@@ -220,14 +349,14 @@
                 alert("Demo Order Placed!");
             } else {
                 try {
-                    await addDoc(collection(db, "artifacts", "ooru-mess-github", "public", "data", "orders"), orderData);
+                    const basePath = "artifacts/ooru-mess-github/public/data";
+                    await addDoc(collection(db, basePath, "orders"), orderData);
                     alert("Order sent to Kitchen!");
                 } catch (e) {
                     alert("Error: " + e.message);
                 }
             }
 
-            // Reset
             state.cart = [];
             state.tableNumber = '';
             state.isCheckoutOpen = false;
@@ -242,58 +371,88 @@
                 return;
             }
             try {
-                const orderRef = doc(db, "artifacts", "ooru-mess-github", "public", "data", "orders", orderId);
+                const basePath = "artifacts/ooru-mess-github/public/data";
+                const orderRef = doc(db, basePath, "orders", orderId);
                 await updateDoc(orderRef, { status: newStatus });
             } catch (e) {
                 console.error(e);
             }
         };
 
+
         // --- Render Functions ---
 
         function render() {
             const appEl = document.getElementById('app');
-            appEl.innerHTML = ''; // Clear
+            
+            if (state.error) {
+                renderError(appEl);
+                return;
+            }
 
             if (state.loading) {
                 appEl.innerHTML = `
                     <div class="h-screen flex items-center justify-center flex-col text-orange-600">
-                        <i data-lucide="utensils" class="w-12 h-12 mb-4 animate-bounce"></i>
-                        <p class="font-bold">Loading Ooru Mess...</p>
+                        <i data-lucide="loader-2" class="w-12 h-12 mb-4 animate-spin"></i>
+                        <p class="font-bold">Loading Menu...</p>
                     </div>`;
                 lucide.createIcons();
                 return;
             }
 
-            if (state.view === 'landing') {
-                renderLanding(appEl);
-            } else if (state.view === 'customer') {
-                renderCustomer(appEl);
-            } else if (state.view === 'kitchen') {
-                renderKitchen(appEl);
-            }
+            if (state.view === 'landing') renderLanding(appEl);
+            else if (state.view === 'customer') renderCustomer(appEl);
+            else if (state.view === 'kitchen') renderKitchen(appEl);
+            else if (state.view === 'admin') renderAdmin(appEl);
             
             lucide.createIcons();
         }
 
+        function renderError(container) {
+            const isPermission = state.error?.code === 'permission-denied';
+            const isProtocol = state.error?.code === 'protocol-error';
+            
+            container.innerHTML = `
+            <div class="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+                <div class="bg-red-50 p-6 rounded-2xl max-w-lg w-full border border-red-100 shadow-xl">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-triangle" class="w-8 h-8 text-red-600"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Setup Required</h2>
+                    <p class="text-gray-600 mb-4">${state.error.message}</p>
+                    ${isPermission ? `
+                    <div class="text-left bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono overflow-x-auto mb-4">
+                        <p class="text-green-400 mb-2">// Update Firebase Rules</p>
+                        match /databases/{database}/documents { allow read, write: if true; }
+                    </div>` : ''}
+                    <div class="flex flex-col gap-3">
+                        ${!isProtocol ? '<button onclick="window.location.reload()" class="bg-gray-800 text-white py-3 rounded-xl font-bold">Retry</button>' : ''}
+                        <button onclick="enterDemoMode()" class="bg-orange-600 text-white py-3 rounded-xl font-bold shadow-lg">Enter Demo Mode</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
         function renderLanding(container) {
             container.innerHTML = `
-                <div class="min-h-screen bg-gradient-to-br from-orange-600 to-red-700 flex items-center justify-center p-6 text-white">
+                <div class="min-h-screen bg-gradient-to-br from-orange-600 to-red-700 flex items-center justify-center p-6 text-white relative">
+                    <button onclick="setView('admin')" class="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition"><i data-lucide="settings" class="w-6 h-6 text-white"></i></button>
+                    
+                    ${state.isDemoMode ? '<div class="absolute top-6 left-6 bg-orange-900/50 px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50">DEMO MODE</div>' : ''}
+                    
                     <div class="bg-white/10 backdrop-blur-lg p-8 rounded-3xl border border-white/20 max-w-md w-full text-center shadow-2xl">
-                        <div class="w-20 h-20 bg-white text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                            <i data-lucide="utensils" class="w-10 h-10"></i>
+                        <div class="w-24 h-24 bg-white text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl transform hover:scale-110 transition duration-300">
+                            <i data-lucide="utensils" class="w-12 h-12"></i>
                         </div>
                         <h1 class="text-4xl font-bold mb-2 tracking-tight">Ooru Mess</h1>
-                        <p class="text-orange-100 mb-8 font-light">Authentic Banana Leaf Experience</p>
+                        <p class="text-orange-100 mb-8 font-light text-lg">Authentic Banana Leaf Experience</p>
                         
                         <div class="space-y-4">
-                            <button onclick="setView('customer')" class="w-full bg-white text-orange-600 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-3">
-                                <i data-lucide="shopping-bag" class="w-6 h-6"></i>
-                                Place an Order
+                            <button onclick="setView('customer')" class="w-full bg-white text-orange-600 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-3">
+                                <i data-lucide="shopping-bag" class="w-6 h-6"></i> Place Order
                             </button>
-                            <button onclick="setView('kitchen')" class="w-full bg-black/20 hover:bg-black/30 text-white border border-white/30 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform flex items-center justify-center gap-3">
-                                <i data-lucide="chef-hat" class="w-6 h-6"></i>
-                                Kitchen Display
+                            <button onclick="setView('kitchen')" class="w-full bg-black/20 hover:bg-black/30 text-white border border-white/30 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-all flex items-center justify-center gap-3">
+                                <i data-lucide="chef-hat" class="w-6 h-6"></i> Kitchen View
                             </button>
                         </div>
                     </div>
@@ -301,14 +460,91 @@
             `;
         }
 
+        function renderAdmin(container) {
+            const categories = state.categories.sort((a,b) => a.order - b.order);
+            const menuItems = state.menuItems.sort((a,b) => a.category.localeCompare(b.category));
+
+            container.innerHTML = `
+                <div class="min-h-screen bg-gray-50 pb-20">
+                    <div class="bg-slate-900 text-white p-4 sticky top-0 z-20 flex items-center justify-between shadow-md">
+                        <div class="flex items-center gap-3">
+                            <button onclick="setView('landing')" class="p-1 hover:bg-slate-700 rounded"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+                            <h1 class="font-bold text-xl">Admin Settings</h1>
+                        </div>
+                    </div>
+
+                    <div class="max-w-4xl mx-auto p-4 space-y-8">
+                        
+                        <!-- 1. Add Category -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-blue-600"></i> Manage Categories</h2>
+                            <form onsubmit="handleAddCategory(event)" class="flex gap-2">
+                                <input type="text" id="newCatName" placeholder="New Category Name (e.g. Desserts)" class="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" required>
+                                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">Add</button>
+                            </form>
+                            <div class="flex flex-wrap gap-2 mt-4">
+                                ${categories.map(c => `<span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium border border-gray-200">${c.name}</span>`).join('')}
+                            </div>
+                        </div>
+
+                        <!-- 2. Add Item -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-5 h-5 text-green-600"></i> Add New Food Item</h2>
+                            <form onsubmit="handleAddItem(event)" class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <input type="text" id="itemName" placeholder="Food Name (e.g. Ice Cream)" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
+                                    <input type="text" id="itemVariant" placeholder="Variant (Optional - e.g. Vanilla)" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500">
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-3 text-gray-500">RM</span>
+                                        <input type="number" id="itemPrice" step="0.10" placeholder="0.00" class="p-3 pl-10 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
+                                    </div>
+                                    <select id="itemCategory" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
+                                        <option value="" disabled selected>Select Category</option>
+                                        ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-100">Add to Menu</button>
+                            </form>
+                        </div>
+
+                        <!-- 3. Current Menu List -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="list" class="w-5 h-5 text-orange-600"></i> Current Menu Items (${menuItems.length})</h2>
+                            <div class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                                ${menuItems.map(item => `
+                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition">
+                                        <div>
+                                            <div class="font-semibold text-gray-800">${item.name}</div>
+                                            <div class="text-xs text-gray-500">${item.category} ${item.variant ? `• ${item.variant}` : ''}</div>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="font-bold text-gray-900">RM ${parseFloat(item.price).toFixed(2)}</span>
+                                            <button onclick="handleDeleteItem('${item.id}')" class="text-red-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            `;
+        }
+
         function renderCustomer(container) {
+            if (!state.activeCategory && state.categories.length > 0) {
+                state.activeCategory = state.categories[0].name;
+            }
+
             const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+            
+            // Filter
+            const visibleItems = state.menuItems.filter(item => item.category === state.activeCategory);
 
-            // Filter items
-            const visibleItems = MENU_DATA.filter(item => item.category === state.activeCategory);
-
-            let itemsHtml = visibleItems.map(item => {
+            const itemsHtml = visibleItems.map(item => {
                 const inCart = state.cart.find(c => c.id === item.id);
                 const buttonHtml = inCart 
                     ? `<div class="flex items-center bg-gray-100 rounded-lg p-1">
@@ -316,7 +552,7 @@
                         <span class="font-bold px-3 text-sm">${inCart.quantity}</span>
                         <button onclick="updateQuantity('${item.id}', 1)" class="p-1 hover:bg-white rounded text-green-600"><i data-lucide="plus" class="w-4 h-4"></i></button>
                        </div>`
-                    : `<button onclick="addToCart('${item.id}')" class="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-orange-100 transition">Add</button>`;
+                    : `<button onclick="addToCart('${item.id}')" class="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-orange-600 hover:text-white transition">Add</button>`;
 
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-start animate-slide-up">
@@ -325,22 +561,27 @@
                             <h3 class="font-bold text-gray-800">${item.name}</h3>
                         </div>
                         ${item.variant ? `<p class="text-xs text-gray-500 mb-2">${item.variant}</p>` : ''}
-                        <span class="font-bold text-lg text-gray-900">RM ${item.price.toFixed(2)}</span>
+                        <span class="font-bold text-lg text-gray-900">RM ${parseFloat(item.price).toFixed(2)}</span>
                     </div>
                     ${buttonHtml}
                 </div>`;
             }).join('');
 
-            // Categories HTML
-            const categories = ['Food', 'Beverages', 'Thinnai Time'];
-            const tabsHtml = categories.map(cat => `
-                <button onclick="setCategory('${cat}')" 
-                    class="px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors ${state.activeCategory === cat ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500'}">
-                    ${cat}
-                </button>
-            `).join('');
+            // Categories Pills
+            const tabsHtml = state.categories
+                .sort((a,b) => a.order - b.order)
+                .map(cat => `
+                    <button onclick="setCategory('${cat.name}')" 
+                        class="px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all transform active:scale-95 ${
+                            state.activeCategory === cat.name
+                            ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
+                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                        }">
+                        ${cat.name}
+                    </button>
+                `).join('');
 
-            // Checkout Modal HTML
+            // Checkout Modal
             let modalHtml = '';
             if (state.isCheckoutOpen) {
                 const cartItemsHtml = state.cart.map(item => `
@@ -350,7 +591,7 @@
                             <div class="text-xs text-gray-500">${item.variant}</div>
                             <div class="text-xs font-bold text-orange-600 mt-1">RM ${(item.price * item.quantity).toFixed(2)}</div>
                         </div>
-                        <div class="flex items-center gap-2 bg-white border rounded px-2 py-1">
+                        <div class="flex items-center gap-2 bg-white border rounded px-2 py-1 shadow-sm">
                             <button onclick="updateQuantity('${item.id}', -1)" class="text-red-500"><i data-lucide="minus" class="w-3 h-3"></i></button>
                             <span class="text-xs font-bold w-4 text-center">${item.quantity}</span>
                             <button onclick="updateQuantity('${item.id}', 1)" class="text-green-500"><i data-lucide="plus" class="w-3 h-3"></i></button>
@@ -359,65 +600,70 @@
                 `).join('');
 
                 modalHtml = `
-                <div class="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm">
+                <div class="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm p-0 sm:p-4">
                     <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
                         <div class="p-4 border-b flex justify-between items-center bg-orange-50 sm:rounded-t-2xl">
-                            <h2 class="font-bold flex items-center gap-2"><i data-lucide="shopping-bag" class="w-4 h-4"></i> Your Order</h2>
-                            <button onclick="toggleCheckout(false)" class="p-2 hover:bg-white rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            <h2 class="font-bold flex items-center gap-2 text-lg"><i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i> Your Order</h2>
+                            <button onclick="toggleCheckout(false)" class="p-2 hover:bg-white rounded-full transition"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
                         <div class="p-4 overflow-y-auto flex-1">
-                            ${state.cart.length ? cartItemsHtml : '<p class="text-center text-gray-400 py-4">Cart is empty</p>'}
+                            ${state.cart.length ? cartItemsHtml : '<p class="text-center text-gray-400 py-10 flex flex-col items-center"><i data-lucide="shopping-cart" class="w-8 h-8 mb-2 opacity-50"></i>Cart is empty</p>'}
                             ${state.cart.length ? `
                             <div class="mt-4 pt-4 border-t border-dashed border-gray-300">
-                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Table Number *</label>
-                                <input type="number" oninput="setTableNumber(this.value)" placeholder="e.g. 5" class="w-full p-3 border rounded-xl text-center text-lg font-bold outline-none focus:ring-2 focus:ring-orange-500">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Table Number <span class="text-red-500">*</span></label>
+                                <input type="number" oninput="setTableNumber(this.value)" placeholder="e.g. 5" class="w-full p-3 border rounded-xl text-center text-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 placeholder-gray-300">
+                                <p class="text-xs text-center text-gray-400 mt-2">Enter the number on your table stand</p>
                             </div>` : ''}
                         </div>
                         <div class="p-4 border-t bg-gray-50 sm:rounded-b-2xl">
-                            <button id="confirmBtn" onclick="placeOrder()" disabled class="w-full bg-orange-600 text-white py-3 rounded-xl font-bold shadow-lg opacity-50 transition-opacity">
-                                Place Order • RM ${cartTotal.toFixed(2)}
+                            <button id="confirmBtn" onclick="placeOrder()" disabled class="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg opacity-50 transition-opacity flex justify-center items-center gap-2">
+                                <span>Confirm Order</span>
+                                <span class="bg-white/20 px-2 py-0.5 rounded text-sm">RM ${cartTotal.toFixed(2)}</span>
                             </button>
                         </div>
                     </div>
                 </div>`;
             }
 
-            // Floating Cart Bar
+            // Floating Cart
             let floatingCart = '';
             if (cartCount > 0 && !state.isCheckoutOpen) {
                 floatingCart = `
                 <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
                     <div class="max-w-4xl mx-auto flex items-center justify-between">
                         <div>
-                            <p class="text-xs text-gray-500 font-bold uppercase">${cartCount} Items</p>
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">${cartCount} Items</p>
                             <p class="text-xl font-bold text-gray-900">Total: RM ${cartTotal.toFixed(2)}</p>
                         </div>
-                        <button onclick="toggleCheckout(true)" class="bg-orange-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-700">View Cart</button>
+                        <button onclick="toggleCheckout(true)" class="bg-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-700 transition transform active:scale-95">View Cart</button>
                     </div>
                 </div>`;
             }
 
             container.innerHTML = `
-                <div class="pb-24">
-                    <!-- Header -->
+                <div class="pb-28">
                     <div class="bg-white sticky top-0 z-20 px-4 py-3 shadow-sm flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                            <button onclick="setView('landing')" class="text-gray-500 hover:text-black"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                            <h1 class="font-bold text-lg">Ooru Mess</h1>
+                            <button onclick="setView('landing')" class="text-gray-500 hover:text-black p-1 rounded hover:bg-gray-100"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                            <div>
+                                <h1 class="font-bold text-lg leading-tight">Ooru Mess</h1>
+                                <p class="text-xs text-gray-500">Digital Menu</p>
+                            </div>
                         </div>
-                        <div class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> OPEN
+                        <div class="flex items-center gap-2">
+                             ${state.isDemoMode ? '<span class="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">DEMO</span>' : ''}
+                             <div class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200">
+                                <div class="w-2 h-2 ${state.isDemoMode ? 'bg-orange-500' : 'bg-green-500 animate-pulse'} rounded-full"></div> OPEN
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Tabs -->
-                    <div class="bg-white sticky top-[56px] z-10 overflow-x-auto hide-scrollbar flex px-4 border-b gap-2">
+                    <div class="bg-white sticky top-[58px] z-10 overflow-x-auto hide-scrollbar flex px-4 py-3 border-b gap-2">
                         ${tabsHtml}
                     </div>
 
-                    <!-- Grid -->
                     <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        ${itemsHtml}
+                        ${itemsHtml.length ? itemsHtml : `<div class="col-span-full text-center py-10 text-gray-400">No items in this category yet.</div>`}
                     </div>
 
                     ${floatingCart}
@@ -429,36 +675,39 @@
         function renderKitchen(container) {
             const pendingOrders = state.orders.filter(o => o.status === 'pending');
             const cookingOrders = state.orders.filter(o => o.status === 'cooking');
-            const readyOrders = state.orders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5); // Show last 5
+            const readyOrders = state.orders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5);
 
             const renderCard = (order, type) => {
                 const timeStr = order.timestamp && order.timestamp.toDate ? order.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Now';
                 
                 let actions = '';
                 if (type === 'pending') {
-                    actions = `<button onclick="updateOrderStatus('${order.id}', 'cooking')" class="w-full mt-3 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 flex items-center justify-center gap-2"><i data-lucide="flame" class="w-4 h-4"></i> Start Cooking</button>`;
+                    actions = `<button onclick="updateOrderStatus('${order.id}', 'cooking')" class="w-full mt-3 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 flex items-center justify-center gap-2 transition shadow"><i data-lucide="flame" class="w-4 h-4"></i> Preparing</button>`;
                 } else if (type === 'cooking') {
-                    actions = `<button onclick="updateOrderStatus('${order.id}', 'ready')" class="w-full mt-3 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Mark Ready</button>`;
+                    actions = `<button onclick="updateOrderStatus('${order.id}', 'ready')" class="w-full mt-3 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2 transition shadow"><i data-lucide="check-circle" class="w-4 h-4"></i> Mark Ready</button>`;
                 } else if (type === 'ready' && order.status !== 'served') {
-                    actions = `<button onclick="updateOrderStatus('${order.id}', 'served')" class="w-full mt-3 bg-gray-700 text-white py-2 rounded-lg font-bold text-sm hover:bg-gray-800">Mark Served</button>`;
+                    actions = `<button onclick="updateOrderStatus('${order.id}', 'served')" class="w-full mt-3 bg-gray-700 text-white py-2 rounded-lg font-bold text-sm hover:bg-gray-800 transition">Mark Served</button>`;
                 }
+
+                let displayStatus = order.status;
+                if (order.status === 'cooking') displayStatus = 'PREPARING';
 
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${type==='pending'?'border-blue-500':type==='cooking'?'border-orange-500':'border-green-500'} mb-4 animate-slide-up">
                     <div class="flex justify-between items-start mb-2 border-b pb-2">
                         <div>
-                            <span class="text-xs font-bold text-gray-500 uppercase">Table</span>
-                            <div class="text-2xl font-black text-gray-800">${order.tableNumber}</div>
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">Table</span>
+                            <div class="text-3xl font-black text-gray-800 leading-none">${order.tableNumber}</div>
                         </div>
                         <div class="text-right">
                             <span class="text-xs font-medium text-gray-400 flex items-center justify-end gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${timeStr}</span>
-                            <span class="text-xs font-bold uppercase px-2 py-0.5 rounded text-white ${type==='pending'?'bg-blue-500':type==='cooking'?'bg-orange-500':'bg-green-500'}">${order.status}</span>
+                            <span class="text-xs font-bold uppercase px-2 py-0.5 rounded text-white mt-1 inline-block ${type==='pending'?'bg-blue-500':type==='cooking'?'bg-orange-500':'bg-green-500'}">${displayStatus}</span>
                         </div>
                     </div>
                     <div class="space-y-1">
                         ${order.items.map(i => `
                             <div class="flex gap-2 text-sm">
-                                <span class="font-bold bg-gray-100 px-1.5 rounded h-fit">${i.quantity}x</span>
+                                <span class="font-bold bg-gray-100 px-1.5 rounded h-fit text-gray-700">${i.quantity}x</span>
                                 <div>
                                     <span class="font-medium text-gray-800">${i.name}</span>
                                     ${i.variant ? `<span class="text-xs text-gray-500 block">${i.variant}</span>` : ''}
@@ -474,32 +723,41 @@
                 <div class="min-h-screen bg-slate-100 flex flex-col">
                     <div class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md">
                         <div class="flex items-center gap-4">
-                            <button onclick="setView('landing')" class="text-slate-400 hover:text-white"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+                            <button onclick="setView('landing')" class="text-slate-400 hover:text-white transition"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
                             <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="chef-hat" class="text-orange-500"></i> KDS</h1>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full ${state.isDemoMode ? 'bg-orange-500' : 'bg-green-500 pulse-status'}"></span>
-                            <span class="text-xs font-mono text-slate-400">${state.isDemoMode ? 'DEMO' : 'LIVE'}</span>
+                            <span class="text-xs font-mono text-slate-400 font-bold">${state.isDemoMode ? 'DEMO' : 'LIVE'}</span>
                         </div>
                     </div>
                     
                     <div class="flex-1 overflow-x-auto p-4">
-                        <div class="flex gap-4 min-w-[900px]">
+                        <div class="flex gap-4 min-w-[1000px]">
                             <!-- Pending -->
-                            <div class="flex-1 min-w-[300px]">
-                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between">Pending <span class="bg-blue-100 text-blue-800 px-2 rounded-full text-xs flex items-center">${pendingOrders.length}</span></h2>
-                                ${pendingOrders.map(o => renderCard(o, 'pending')).join('') || '<div class="text-center text-slate-400 italic py-10 border-2 border-dashed rounded-xl">No pending orders</div>'}
+                            <div class="flex-1 min-w-[320px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
+                                    <span>Pending</span> 
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold">${pendingOrders.length}</span>
+                                </h2>
+                                ${pendingOrders.map(o => renderCard(o, 'pending')).join('') || '<div class="text-center text-slate-400 italic py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">No pending orders</div>'}
                             </div>
                             
-                            <!-- Cooking -->
-                            <div class="flex-1 min-w-[300px]">
-                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between">Cooking <span class="bg-orange-100 text-orange-800 px-2 rounded-full text-xs flex items-center">${cookingOrders.length}</span></h2>
+                            <!-- Preparing -->
+                            <div class="flex-1 min-w-[320px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
+                                    <span>Preparing</span> 
+                                    <span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs font-bold">${cookingOrders.length}</span>
+                                </h2>
                                 ${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}
                             </div>
 
                             <!-- Done -->
-                            <div class="flex-1 min-w-[300px]">
-                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between">Ready / Served <span class="bg-green-100 text-green-800 px-2 rounded-full text-xs flex items-center">${readyOrders.length}</span></h2>
+                            <div class="flex-1 min-w-[320px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
+                                    <span>Ready / Served</span> 
+                                    <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-bold">${readyOrders.length}</span>
+                                </h2>
                                 ${readyOrders.map(o => renderCard(o, 'ready')).join('')}
                             </div>
                         </div>
@@ -508,9 +766,9 @@
             `;
         }
 
-        // Start App
         init();
     </script>
 </body>
 </html>
+
 
