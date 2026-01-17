@@ -6,10 +6,7 @@
     <title>Ooru Mess | Digital Ordering</title>
     
     <!-- 
-      ICON FIX: 
-      1. Ensure 'apple-touch-icon.png' is in the SAME folder as this HTML file.
-      2. Added '?v=2' to force devices to re-fetch the image in case of caching issues.
-      3. Ensure the image is PNG format and roughly 180x180 pixels.
+      ICON CONFIGURATION 
     -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍛</text></svg>">
@@ -546,7 +543,6 @@
                 `;
             }
 
-            // Using background-size: 100% 100% to force exact fit so corners aren't cut off
             container.innerHTML = `
                 <div class="h-dvh w-full relative overflow-hidden" 
                      style="background-image: url('https://theva73.github.io/OoruMess/oorumess.png'); 
@@ -554,25 +550,24 @@
                             background-position: center; 
                             background-repeat: no-repeat;">
                     
-                    <!-- Dark overlay if needed, currently transparent -->
                     <div class="absolute inset-0 bg-transparent"></div>
 
                     <!-- 1. Settings / Gear Icon (Top Right Corner) -->
-                    <!-- MOVED: 5% from top as requested -->
+                    <!-- Positioned at top: 5%, right: 0 -->
                     <button onclick="setView('admin')" 
                             class="absolute top-[5%] right-0 w-[15%] h-[10%] opacity-0 z-50 cursor-pointer"
                             title="Admin Settings">
                     </button>
                     
                     <!-- 2. Place Order (Middle Band) -->
-                    <!-- Keep at 48% as previously requested -->
+                    <!-- Positioned at top: 48% -->
                     <button onclick="setView('customer')" 
                             class="absolute top-[48%] left-[10%] w-[80%] h-[20%] opacity-0 z-40 cursor-pointer"
                             title="Place Order">
                     </button>
 
                     <!-- 3. Kitchen View (Lower Band) -->
-                    <!-- MOVED LOWER: 70% from top as requested -->
+                    <!-- Positioned at top: 70% -->
                     <button onclick="setView('kitchen')" 
                             class="absolute top-[70%] left-[10%] w-[80%] h-[15%] opacity-0 z-40 cursor-pointer"
                             title="Kitchen View">
@@ -945,18 +940,39 @@
         }
 
         function renderKitchen(container) {
-            const pendingOrders = state.orders.filter(o => o.status === 'pending');
-            const cookingOrders = state.orders.filter(o => o.status === 'cooking');
-            const readyOrders = state.orders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5);
+            // Helper to check if order is from today
+            const isToday = (timestamp) => {
+                if (!timestamp) return false;
+                const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+                const today = new Date();
+                return date.getDate() === today.getDate() &&
+                       date.getMonth() === today.getMonth() &&
+                       date.getFullYear() === today.getFullYear();
+            };
+
+            // Filter for only today's orders first
+            const todaysOrders = state.orders.filter(o => isToday(o.timestamp));
+
+            const pendingOrders = todaysOrders.filter(o => o.status === 'pending');
+            const cookingOrders = todaysOrders.filter(o => o.status === 'cooking');
+            const readyOrders = todaysOrders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5);
 
             const renderCard = (order, type) => {
                 const timeStr = order.timestamp && order.timestamp.toDate ? order.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Now';
                 
                 let actions = '';
                 if (type === 'pending') {
-                    actions = `<button onclick="updateOrderStatus('${order.id}', 'cooking')" class="w-full mt-3 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 flex items-center justify-center gap-2 transition shadow"><i data-lucide="flame" class="w-4 h-4"></i> Preparing</button>`;
+                    actions = `
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Cancel Order"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        <button onclick="updateOrderStatus('${order.id}', 'cooking')" class="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 flex items-center justify-center gap-2 transition shadow"><i data-lucide="flame" class="w-4 h-4"></i> Preparing</button>
+                    </div>`;
                 } else if (type === 'cooking') {
-                    actions = `<button onclick="updateOrderStatus('${order.id}', 'ready')" class="w-full mt-3 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2 transition shadow"><i data-lucide="check-circle" class="w-4 h-4"></i> Mark Ready</button>`;
+                    actions = `
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Cancel Order"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        <button onclick="updateOrderStatus('${order.id}', 'ready')" class="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2 transition shadow"><i data-lucide="check-circle" class="w-4 h-4"></i> Mark Ready</button>
+                    </div>`;
                 } else if (type === 'ready' && order.status !== 'served') {
                     actions = `<button onclick="updateOrderStatus('${order.id}', 'served')" class="w-full mt-3 bg-gray-700 text-white py-2 rounded-lg font-bold text-sm hover:bg-gray-800 transition">Mark Served</button>`;
                 }
