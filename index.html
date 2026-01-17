@@ -543,23 +543,23 @@
                     <div class="absolute inset-0 bg-transparent"></div>
 
                     <!-- 1. Settings / Gear Icon (Top Right Corner) -->
-                    <!-- Positioned at top:0, right:0, 15% width x 10% height to ensure reachability -->
+                    <!-- MOVED: 5% from top as requested -->
                     <button onclick="setView('admin')" 
-                            class="absolute top-0 right-0 w-[15%] h-[10%] opacity-0 z-50 cursor-pointer"
+                            class="absolute top-[5%] right-0 w-[15%] h-[10%] opacity-0 z-50 cursor-pointer"
                             title="Admin Settings">
                     </button>
                     
                     <!-- 2. Place Order (Middle Band) -->
-                    <!-- MOVED LOWER: 48% from top, covers 20% height -->
+                    <!-- Keep at 48% as previously requested -->
                     <button onclick="setView('customer')" 
                             class="absolute top-[48%] left-[10%] w-[80%] h-[20%] opacity-0 z-40 cursor-pointer"
                             title="Place Order">
                     </button>
 
                     <!-- 3. Kitchen View (Lower Band) -->
-                    <!-- MOVED LOWER: 73% from top, covers 15% height -->
+                    <!-- MOVED LOWER: 70% from top as requested -->
                     <button onclick="setView('kitchen')" 
-                            class="absolute top-[73%] left-[10%] w-[80%] h-[15%] opacity-0 z-40 cursor-pointer"
+                            class="absolute top-[70%] left-[10%] w-[80%] h-[15%] opacity-0 z-40 cursor-pointer"
                             title="Kitchen View">
                     </button>
 
