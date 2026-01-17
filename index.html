@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ooru Mess | Digital Ordering</title>
     
-    <!-- 
-      ICON CONFIGURATION 
-    -->
+    <!-- ICON CONFIGURATION -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍛</text></svg>">
 
@@ -66,7 +64,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // --- Configuration ---
         const firebaseConfig = {
@@ -137,7 +135,7 @@
             activeCategory: 'Banana Leaf',
             isCheckoutOpen: false,
             isPaymentOpen: false,
-            paymentStep: 'selection', 
+            paymentStep: 'selection', // 'selection' or 'qr_fullscreen'
             isAdminLoginOpen: false,
             tableNumber: '',
             isDemoMode: false,
@@ -146,7 +144,8 @@
             adminPin: '',
             adminAuthenticated: false,
             adminLoginError: '', 
-            adminExpandedCategories: {} 
+            adminExpandedCategories: {},
+            tabTotal: 0
         };
 
         // --- Initialization ---
@@ -216,9 +215,14 @@
                 render();
             });
 
+            // Listen for orders to update Kitchen View AND to calculate Tabs
             onSnapshot(query(collection(db, basePath, "orders"), orderBy("timestamp", "desc")), (snap) => {
                 state.orders = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                // Only render if kitchen view to avoid input disruption in customer view
                 if (state.view === 'kitchen') render();
+                // For customer view, we might need to update tab info if it changes, 
+                // but we should avoid full re-render if checkout is open.
+                // We'll let the user's interaction drive the checkout updates.
             }, (err) => {
                 if (err.code === 'permission-denied') {
                     handleError({code: 'permission-denied', message: 'Permission Denied.'});
@@ -309,6 +313,10 @@
 
         window.toggleCheckout = (isOpen) => {
             state.isCheckoutOpen = isOpen;
+            if (isOpen) {
+               // Reset active tab info when opening checkout freshly
+               state.tabTotal = 0; 
+            }
             render();
         };
         
@@ -318,15 +326,65 @@
             render();
         }
 
+        // Helper: Calculate if table has open tab
+        function calculateTab(tableNum) {
+            const openOrders = state.orders.filter(o => 
+                o.tableNumber === tableNum && 
+                o.paymentStatus === 'pay_later' &&
+                o.status !== 'cancelled'
+            );
+            return openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+        }
+
+        // FIX: DOM-based update to prevent input focus loss
         window.setTableNumber = (num) => {
             state.tableNumber = num;
+            
+            // Recalculate Tab info based on new table number
+            if (num) {
+                state.tabTotal = calculateTab(num);
+            } else {
+                state.tabTotal = 0;
+            }
+
+            // 1. Update Button State
             const btn = document.getElementById('confirmBtn');
-            if(btn) {
+            if (btn) {
                 btn.disabled = !num;
-                if(num) {
+                if (num) {
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 } else {
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                
+                // 2. Update Price on Button
+                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const grandTotal = cartTotal + state.tabTotal;
+                
+                const priceSpan = btn.querySelector('span:last-child');
+                if (priceSpan) {
+                    priceSpan.textContent = `RM ${(state.tabTotal > 0 ? grandTotal : cartTotal).toFixed(2)}`;
+                }
+            }
+
+            // 3. Update Tab Info Section (No Re-render)
+            const tabContainer = document.getElementById('tabInfoContainer');
+            if (tabContainer) {
+                if (state.tabTotal > 0) {
+                    tabContainer.innerHTML = `
+                        <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex justify-between items-center text-sm animate-fade-in">
+                            <span class="text-blue-800 font-medium">Previous Unpaid Tab:</span>
+                            <span class="font-bold text-blue-900">RM ${state.tabTotal.toFixed(2)}</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2 text-lg font-bold text-gray-900 border-t pt-2 mt-3">
+                            <span>Total Due:</span>
+                            <span>RM ${(state.cart.reduce((s,i)=>s+(i.price*i.quantity),0) + state.tabTotal).toFixed(2)}</span>
+                        </div>
+                    `;
+                    tabContainer.classList.remove('hidden');
+                } else {
+                    tabContainer.innerHTML = '';
+                    tabContainer.classList.add('hidden');
                 }
             }
         };
@@ -400,15 +458,81 @@
         }
 
         window.confirmPayment = async (method) => {
-            const totalAmount = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            // method: 'cash', 'qr', 'pay_later', 'settle_tab_cash', 'settle_tab_qr'
+            
+            const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            // Logic for Settling Tabs (Clearing previous 'pay_later' orders)
+            if (method === 'settle_tab_cash' || method === 'settle_tab_qr') {
+                const realMethod = method === 'settle_tab_cash' ? 'cash' : 'qr';
+                
+                // 1. Create current order as PAID
+                if (state.cart.length > 0) {
+                    await createOrder('paid', realMethod, cartTotal);
+                }
 
+                // 2. Find and update ALL previous 'pay_later' orders for this table to 'paid'
+                if (!state.isDemoMode) {
+                    const basePath = "artifacts/ooru-mess-github/public/data";
+                    const q = query(
+                        collection(db, basePath, "orders"), 
+                        where("tableNumber", "==", state.tableNumber),
+                        where("paymentStatus", "==", "pay_later")
+                    );
+                    
+                    const snapshot = await getDocs(q);
+                    const batch = writeBatch(db);
+                    snapshot.docs.forEach(docSnap => {
+                        // Ensure we don't update cancelled orders
+                        if (docSnap.data().status !== 'cancelled') {
+                            batch.update(docSnap.ref, { paymentStatus: 'paid', paymentMethod: realMethod + '_tab_settled' });
+                        }
+                    });
+                    await batch.commit();
+                } else {
+                    // Demo mode logic
+                    state.orders.forEach(o => {
+                        if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') {
+                            o.paymentStatus = 'paid';
+                        }
+                    });
+                }
+
+                alert(`Full Bill Settled! Table ${state.tableNumber} is now clear.`);
+                resetCart();
+                render();
+                return;
+            }
+
+            // Normal Pay Later Logic
+            if (method === 'pay_later') {
+                await createOrder('pay_later', 'pay_later', cartTotal);
+                alert(`Order added to Tab for Table ${state.tableNumber}. Kitchen notified!`);
+                resetCart();
+                render();
+                return;
+            }
+
+            // Normal Instant Payment (Cash/QR)
+            await createOrder(method === 'qr' ? 'paid' : 'unpaid', method, cartTotal); 
+            
+            if (method === 'cash') {
+                alert(`Order Placed! Please pay RM ${cartTotal.toFixed(2)} at the counter.`);
+            } else {
+                alert(`Payment Received! Kitchen Notified.`);
+            }
+            resetCart();
+            render();
+        };
+
+        async function createOrder(paymentStatus, paymentMethod, total) {
             const orderData = {
                 tableNumber: state.tableNumber,
                 items: state.cart,
-                total: totalAmount,
-                status: 'pending',
-                paymentStatus: method === 'qr' ? 'paid' : 'unpaid',
-                paymentMethod: method,
+                total: total,
+                status: 'pending', // Kitchen status
+                paymentStatus: paymentStatus,
+                paymentMethod: paymentMethod,
                 timestamp: serverTimestamp(),
                 userId: state.user ? state.user.uid : 'demo'
             };
@@ -417,29 +541,19 @@
                 orderData.timestamp = { toDate: () => new Date() };
                 orderData.id = 'demo-' + Date.now();
                 state.orders.unshift(orderData);
-                alert("Demo Order Placed!");
             } else {
-                try {
-                    const basePath = "artifacts/ooru-mess-github/public/data";
-                    await addDoc(collection(db, basePath, "orders"), orderData);
-                } catch (e) {
-                    alert("Error: " + e.message);
-                    return;
-                }
+                const basePath = "artifacts/ooru-mess-github/public/data";
+                await addDoc(collection(db, basePath, "orders"), orderData);
             }
+        }
 
+        function resetCart() {
             state.cart = [];
             state.tableNumber = '';
             state.isCheckoutOpen = false;
             state.isPaymentOpen = false;
-            
-            if (method === 'cash') {
-                alert(`Order Placed! Please pay RM ${totalAmount.toFixed(2)} at the counter.`);
-            } else {
-                alert(`Payment Received! Kitchen Notified.`);
-            }
-            render();
-        };
+            state.tabTotal = 0;
+        }
 
         window.updateOrderStatus = async (orderId, newStatus) => {
             if (state.isDemoMode) {
@@ -789,6 +903,8 @@
                     </div>
                 `).join('');
 
+                const grandTotal = cartTotal + state.tabTotal;
+
                 modalHtml = `
                 <div class="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm p-0 sm:p-4">
                     <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
@@ -798,17 +914,23 @@
                         </div>
                         <div class="p-4 overflow-y-auto flex-1">
                             ${state.cart.length ? cartItemsHtml : '<p class="text-center text-gray-400 py-10 flex flex-col items-center"><i data-lucide="shopping-cart" class="w-8 h-8 mb-2 opacity-50"></i>Cart is empty</p>'}
+                            
                             ${state.cart.length ? `
                             <div class="mt-4 pt-4 border-t border-dashed border-gray-300">
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Table Number <span class="text-red-500">*</span></label>
                                 <input type="number" oninput="setTableNumber(this.value)" value="${state.tableNumber}" placeholder="e.g. 5" class="w-full p-3 border rounded-xl text-center text-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 placeholder-gray-300">
                                 <p class="text-xs text-center text-gray-400 mt-2">Enter the number on your table stand</p>
                             </div>` : ''}
+
+                            <!-- Dynamic Tab Info Container -->
+                            <div id="tabInfoContainer" class="hidden">
+                                <!-- Content injected by JS -->
+                            </div>
                         </div>
-                        <div class="p-4 border-t bg-gray-50 sm:rounded-b-2xl">
+                        <div class="p-4 border-t bg-gray-50 sm:rounded-b-2xl space-y-3">
                             <button id="confirmBtn" onclick="initiatePayment()" disabled class="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg opacity-50 transition-opacity flex justify-center items-center gap-2 cursor-not-allowed">
                                 <span>Proceed to Payment</span>
-                                <span class="bg-white/20 px-2 py-0.5 rounded text-sm">RM ${cartTotal.toFixed(2)}</span>
+                                <span class="bg-white/20 px-2 py-0.5 rounded text-sm">RM ${(state.tabTotal > 0 ? grandTotal : cartTotal).toFixed(2)}</span>
                             </button>
                         </div>
                     </div>
@@ -817,6 +939,9 @@
 
             let paymentModalHtml = '';
             if(state.isPaymentOpen) {
+                const grandTotal = cartTotal + state.tabTotal;
+                const isTabActive = state.tabTotal > 0;
+
                 if (state.paymentStep === 'selection') {
                     paymentModalHtml = `
                     <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4">
@@ -827,28 +952,42 @@
                             </div>
                             
                             <div class="space-y-4">
+                                <!-- Pay Later / Add to Tab -->
+                                <div class="border rounded-xl p-4 hover:border-blue-500 transition cursor-pointer group bg-blue-50 border-blue-100" onclick="confirmPayment('pay_later')">
+                                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition">
+                                        <i data-lucide="clock" class="w-6 h-6 text-blue-600"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800">Pay Later (Add to Tab)</h3>
+                                    <p class="text-xs text-gray-500">Send to kitchen & pay total later</p>
+                                </div>
+
+                                <div class="relative flex py-2 items-center">
+                                    <div class="flex-grow border-t border-gray-200"></div>
+                                    <span class="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase font-bold">OR Settle Now</span>
+                                    <div class="flex-grow border-t border-gray-200"></div>
+                                </div>
+
                                 <!-- Option 1: QR -->
-                                <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="showLargeQR()">
+                                <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `showLargeQR()`}">
                                     <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition">
                                         <i data-lucide="qr-code" class="w-6 h-6 text-orange-600"></i>
                                     </div>
                                     <h3 class="font-bold text-gray-800">Scan QR / DuitNow</h3>
-                                    <p class="text-xs text-gray-500">Pay via App & Auto-Confirm</p>
-                                    <div class="mt-3 bg-gray-50 p-2 rounded border border-dashed border-gray-300">
-                                        <div class="mx-auto w-24 h-24 bg-white flex items-center justify-center border overflow-hidden p-1">
+                                    <div class="mt-2 bg-gray-50 p-2 rounded border border-dashed border-gray-300">
+                                        <div class="mx-auto w-16 h-16 bg-white flex items-center justify-center border overflow-hidden p-1">
                                             <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="QR Code">
                                         </div>
-                                        <p class="text-[10px] text-gray-400 mt-1">Scan to Pay RM ${cartTotal.toFixed(2)}</p>
+                                        <p class="text-[10px] text-gray-400 mt-1 font-bold">Pay RM ${grandTotal.toFixed(2)}</p>
                                     </div>
                                 </div>
 
                                 <!-- Option 2: Cash -->
-                                <div class="border rounded-xl p-4 hover:border-green-500 transition cursor-pointer group" onclick="confirmPayment('cash')">
+                                <div class="border rounded-xl p-4 hover:border-green-500 transition cursor-pointer group" onclick="${isTabActive ? `confirmPayment('settle_tab_cash')` : `confirmPayment('cash')`}">
                                     <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200 transition">
                                         <i data-lucide="banknote" class="w-6 h-6 text-green-600"></i>
                                     </div>
                                     <h3 class="font-bold text-gray-800">Cash at Counter</h3>
-                                    <p class="text-xs text-gray-500">Pay RM ${cartTotal.toFixed(2)} manually at counter</p>
+                                    <p class="text-xs text-gray-500">Settle Full Bill: RM ${grandTotal.toFixed(2)}</p>
                                 </div>
                             </div>
                         </div>
@@ -862,7 +1001,7 @@
                                 <div class="absolute inset-0 bg-orange-700 opacity-20 transform -skew-y-12 scale-150"></div>
                                 <h2 class="text-2xl font-bold relative z-10 mb-1">Scan to Pay</h2>
                                 <p class="text-orange-100 text-sm relative z-10">Total Amount</p>
-                                <p class="text-3xl font-bold relative z-10">RM ${cartTotal.toFixed(2)}</p>
+                                <p class="text-3xl font-bold relative z-10">RM ${grandTotal.toFixed(2)}</p>
                             </div>
                             
                             <div class="p-8 flex flex-col items-center">
@@ -876,7 +1015,7 @@
                                 <p class="text-sm text-gray-500 text-center mb-6 max-w-[200px]">Open your banking app or e-wallet to scan this DuitNow QR code.</p>
                                 
                                 <div class="w-full space-y-3">
-                                    <button onclick="confirmPayment('qr')" class="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transform active:scale-95 transition flex items-center justify-center gap-2">
+                                    <button onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `confirmPayment('qr')`}" class="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transform active:scale-95 transition flex items-center justify-center gap-2">
                                         <i data-lucide="check-circle" class="w-5 h-5"></i>
                                         I have Paid
                                     </button>
@@ -981,9 +1120,15 @@
                 if (order.status === 'cooking') displayStatus = 'PREPARING';
                 
                 const isPaid = order.paymentStatus === 'paid';
-                const paymentBadge = isPaid 
-                    ? `<span class="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-200 font-bold ml-1">PAID</span>`
-                    : `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 font-bold ml-1">CASH</span>`;
+                let paymentBadge = '';
+                
+                if (order.paymentStatus === 'pay_later') {
+                    paymentBadge = `<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-200 font-bold ml-1">TAB</span>`;
+                } else if (isPaid) {
+                    paymentBadge = `<span class="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-200 font-bold ml-1">PAID</span>`;
+                } else {
+                    paymentBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 font-bold ml-1">CASH</span>`;
+                }
 
 
                 return `
