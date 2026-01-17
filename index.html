@@ -42,13 +42,14 @@
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Fix for mobile 100vh issue */
+        /* Custom utility for dynamic viewport height */
         .h-dvh { height: 100vh; height: 100dvh; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 h-dvh overflow-hidden">
+<!-- UPDATED: Removed 'overflow-hidden' and 'h-dvh' from body to allow scrolling on content pages -->
+<body class="bg-gray-50 text-gray-800">
 
-    <div id="app" class="h-full w-full"></div>
+    <div id="app"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -539,25 +540,24 @@
                             background-position: center; 
                             background-repeat: no-repeat;">
                     
-                    <!-- Dark overlay if needed, currently transparent -->
                     <div class="absolute inset-0 bg-transparent"></div>
 
                     <!-- 1. Settings / Gear Icon (Top Right Corner) -->
-                    <!-- MOVED: 5% from top as requested -->
+                    <!-- Positioned at top: 5%, right: 0 -->
                     <button onclick="setView('admin')" 
                             class="absolute top-[5%] right-0 w-[15%] h-[10%] opacity-0 z-50 cursor-pointer"
                             title="Admin Settings">
                     </button>
                     
                     <!-- 2. Place Order (Middle Band) -->
-                    <!-- Keep at 48% as previously requested -->
+                    <!-- Positioned at top: 48% -->
                     <button onclick="setView('customer')" 
                             class="absolute top-[48%] left-[10%] w-[80%] h-[20%] opacity-0 z-40 cursor-pointer"
                             title="Place Order">
                     </button>
 
                     <!-- 3. Kitchen View (Lower Band) -->
-                    <!-- MOVED LOWER: 70% from top as requested -->
+                    <!-- Positioned at top: 70% -->
                     <button onclick="setView('kitchen')" 
                             class="absolute top-[70%] left-[10%] w-[80%] h-[15%] opacity-0 z-40 cursor-pointer"
                             title="Kitchen View">
@@ -645,6 +645,23 @@
                     </div>
 
                     <div class="max-w-4xl mx-auto p-4 space-y-6">
+                        
+                        <!-- Added Sales Dashboard Link Card -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                                    <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h2 class="font-bold text-lg text-gray-800">Sales Dashboard</h2>
+                                    <p class="text-xs text-gray-500">View analytics, revenue, and order trends</p>
+                                </div>
+                            </div>
+                            <a href="https://theva73.github.io/OoruMess/SalesDashboard.html" class="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex items-center justify-center gap-2 transition transform active:scale-95">
+                                Open Dashboard <i data-lucide="external-link" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-blue-600"></i> Manage Categories</h2>
                             <form onsubmit="handleAddCategory(event)" class="flex gap-2">
