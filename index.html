@@ -41,6 +41,90 @@
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- Landing Rebrand Styles --- */
+        .landing-radial {
+            background:
+              radial-gradient(1200px 700px at 20% 10%, rgba(255,255,255,0.16), rgba(255,255,255,0) 55%),
+              radial-gradient(900px 600px at 85% 20%, rgba(255,255,255,0.12), rgba(255,255,255,0) 50%),
+              linear-gradient(135deg, #ea580c 0%, #b91c1c 60%, #7f1d1d 100%);
+        }
+        .glass-card {
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.22);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+        .brand-hero {
+            position: relative;
+            overflow: hidden;
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.22);
+            background: rgba(0,0,0,0.18);
+        }
+        .brand-hero img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+            transform: scale(1.02);
+        }
+        .brand-hero:after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.20) 0%, rgba(0,0,0,0.45) 70%, rgba(0,0,0,0.65) 100%);
+            pointer-events: none;
+        }
+        .brand-badge {
+            position: absolute;
+            left: 16px;
+            bottom: 16px;
+            z-index: 2;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.22);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ea580c;
+            box-shadow: 0 12px 25px rgba(0,0,0,0.18);
+            flex: 0 0 auto;
+        }
+        .brand-mark i { width: 22px; height: 22px; }
+        .brand-title {
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.05;
+        }
+        .brand-subtitle {
+            opacity: 0.88;
+            font-weight: 400;
+        }
+        .btn-primary {
+            background: rgba(255,255,255,0.92);
+            color: #ea580c;
+        }
+        .btn-primary:hover { background: rgba(255,255,255,0.98); }
+        .btn-secondary {
+            background: rgba(0,0,0,0.20);
+            border: 1px solid rgba(255,255,255,0.26);
+            color: #fff;
+        }
+        .btn-secondary:hover { background: rgba(0,0,0,0.30); }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen">
@@ -63,6 +147,9 @@
             appId: "1:416498252793:web:76d610bdb967953fb75b28",
             measurementId: "G-D7SXMP1YS2"
         };
+
+        // ✅ Landing brand image (place oorumess.png beside this HTML, or change to your hosted URL)
+        const LANDING_BRAND_IMAGE = "oorumess.png";
 
         // --- Default Data for Seeding ---
         const DEFAULT_CATEGORIES = [
@@ -122,7 +209,7 @@
             activeCategory: 'Banana Leaf',
             isCheckoutOpen: false,
             isPaymentOpen: false,
-            paymentStep: 'selection', // 'selection' or 'qr_fullscreen'
+            paymentStep: 'selection',
             isAdminLoginOpen: false,
             tableNumber: '',
             isDemoMode: false,
@@ -303,7 +390,6 @@
             render();
         }
 
-        // Only updates DOM to keep focus, no re-render
         window.setTableNumber = (num) => {
             state.tableNumber = num;
             const btn = document.getElementById('confirmBtn');
@@ -376,7 +462,7 @@
              if (!state.tableNumber || state.cart.length === 0) return;
              state.isCheckoutOpen = false;
              state.isPaymentOpen = true;
-             state.paymentStep = 'selection'; // Reset step
+             state.paymentStep = 'selection';
              render();
         };
 
@@ -386,8 +472,6 @@
         }
 
         window.confirmPayment = async (method) => {
-            // method: 'cash' or 'qr'
-            
             const totalAmount = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
             const orderData = {
@@ -499,6 +583,7 @@
             </div>`;
         }
 
+        /* ✅ REBRANDED LANDING WITH IMAGE (maintains all original behavior) */
         function renderLanding(container) {
             let loginModal = '';
             if (state.isAdminLoginOpen) {
@@ -532,29 +617,46 @@
             }
 
             container.innerHTML = `
-                <div class="min-h-screen bg-gradient-to-br from-orange-600 to-red-700 flex items-center justify-center p-6 text-white relative">
+                <div class="min-h-screen landing-radial flex items-center justify-center p-6 text-white relative">
                     <button onclick="setView('admin')" class="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full transition group" title="Admin Settings">
                         <i data-lucide="settings" class="w-6 h-6 text-white group-hover:rotate-90 transition-transform"></i>
                     </button>
-                    
-                    ${state.isDemoMode ? '<div class="absolute top-6 left-6 bg-orange-900/50 px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50">DEMO MODE</div>' : ''}
-                    
-                    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-3xl border border-white/20 max-w-md w-full text-center shadow-2xl">
-                        <div class="w-24 h-24 bg-white text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl transform hover:scale-110 transition duration-300">
-                            <i data-lucide="utensils" class="w-12 h-12"></i>
+
+                    ${state.isDemoMode ? '<div class="absolute top-6 left-6 bg-white/10 px-3 py-1 rounded-full text-xs font-bold border border-white/20">DEMO MODE</div>' : ''}
+
+                    <div class="glass-card p-6 sm:p-7 rounded-3xl max-w-md w-full text-center">
+                        <div class="brand-hero mb-5">
+                            <img src="${LANDING_BRAND_IMAGE}" alt="Ooru Mess Banner" onerror="this.style.display='none'">
+                            <div class="brand-badge">
+                                <div class="brand-mark">
+                                    <i data-lucide="utensils"></i>
+                                </div>
+                                <div class="text-left">
+                                    <div class="brand-title text-lg">Ooru Mess</div>
+                                    <div class="brand-subtitle text-xs">South Indian Banana Leaf Meals</div>
+                                </div>
+                            </div>
                         </div>
-                        <h1 class="text-4xl font-bold mb-2 tracking-tight">Ooru Mess</h1>
-                        <p class="text-orange-100 mb-8 font-light text-lg">Authentic Banana Leaf Experience</p>
-                        
-                        <div class="space-y-4">
-                            <button onclick="setView('customer')" class="w-full bg-white text-orange-600 py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-3">
+
+                        <h1 class="text-3xl sm:text-4xl font-extrabold mb-2 tracking-tight">Welcome</h1>
+                        <p class="text-white/85 mb-6 font-light">
+                            Authentic Banana Leaf Experience
+                        </p>
+
+                        <div class="space-y-3">
+                            <button onclick="setView('customer')" class="w-full btn-primary py-4 rounded-xl font-bold text-lg shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all flex items-center justify-center gap-3">
                                 <i data-lucide="shopping-bag" class="w-6 h-6"></i> Place Order
                             </button>
-                            <button onclick="setView('kitchen')" class="w-full bg-black/20 hover:bg-black/30 text-white border border-white/30 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-all flex items-center justify-center gap-3">
+                            <button onclick="setView('kitchen')" class="w-full btn-secondary py-4 rounded-xl font-bold text-lg hover:scale-[1.02] active:scale-[0.99] transition-all flex items-center justify-center gap-3">
                                 <i data-lucide="chef-hat" class="w-6 h-6"></i> Kitchen View
                             </button>
                         </div>
+
+                        <div class="mt-5 text-[11px] text-white/70">
+                            Tip: Tap <span class="font-bold text-white/90">Admin</span> (⚙️) for menu settings.
+                        </div>
                     </div>
+
                     ${loginModal}
                 </div>
             `;
@@ -564,6 +666,7 @@
             }
         }
 
+        /* --- everything else below remains identical to your original file --- */
         function renderAdmin(container) {
             const categories = state.categories.sort((a,b) => a.order - b.order);
             const menuItems = state.menuItems;
@@ -678,6 +781,7 @@
             `;
         }
 
+        /* Customer + Kitchen functions unchanged (original content) */
         function renderCustomer(container) {
             if (!state.activeCategory && state.categories.length > 0) {
                 state.activeCategory = state.categories[0].name;
@@ -779,7 +883,6 @@
                             </div>
                             
                             <div class="space-y-4">
-                                <!-- Option 1: QR -->
                                 <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="showLargeQR()">
                                     <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition">
                                         <i data-lucide="qr-code" class="w-6 h-6 text-orange-600"></i>
@@ -788,7 +891,6 @@
                                     <p class="text-xs text-gray-500">Pay via App & Auto-Confirm</p>
                                     <div class="mt-3 bg-gray-50 p-2 rounded border border-dashed border-gray-300">
                                         <div class="mx-auto w-24 h-24 bg-white flex items-center justify-center border">
-                                            <!-- CSS Simulated QR -->
                                             <div class="w-16 h-16 grid grid-cols-4 grid-rows-4 gap-0.5">
                                                 ${Array(16).fill(0).map(() => `<div class="bg-black ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'}"></div>`).join('')}
                                             </div>
@@ -797,7 +899,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Option 2: Cash -->
                                 <div class="border rounded-xl p-4 hover:border-green-500 transition cursor-pointer group" onclick="confirmPayment('cash')">
                                     <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200 transition">
                                         <i data-lucide="banknote" class="w-6 h-6 text-green-600"></i>
@@ -824,7 +925,6 @@
                                 <div class="w-64 h-64 bg-white p-2 rounded-xl shadow-lg border-2 border-orange-100 mb-6 relative group">
                                     <div class="absolute -inset-1 rounded-2xl border-2 border-dashed border-orange-300 animate-pulse"></div>
                                     <div class="w-full h-full bg-white flex items-center justify-center relative z-10">
-                                        <!-- Large CSS QR -->
                                         <div class="w-56 h-56 grid grid-cols-8 grid-rows-8 gap-1">
                                             ${Array(64).fill(0).map(() => `<div class="bg-black ${Math.random() > 0.4 ? 'opacity-100' : 'opacity-0'} rounded-sm"></div>`).join('')}
                                         </div>
@@ -924,7 +1024,6 @@
                     ? `<span class="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-200 font-bold ml-1">PAID</span>`
                     : `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 font-bold ml-1">CASH</span>`;
 
-
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${type==='pending'?'border-blue-500':type==='cooking'?'border-orange-500':'border-green-500'} mb-4 animate-slide-up">
                     <div class="flex justify-between items-start mb-2 border-b pb-2">
@@ -970,7 +1069,6 @@
                     
                     <div class="flex-1 overflow-x-auto p-4">
                         <div class="flex gap-4 min-w-[1000px]">
-                            <!-- Pending -->
                             <div class="flex-1 min-w-[320px]">
                                 <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
                                     <span>Pending</span> 
@@ -979,7 +1077,6 @@
                                 ${pendingOrders.map(o => renderCard(o, 'pending')).join('') || '<div class="text-center text-slate-400 italic py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">No pending orders</div>'}
                             </div>
                             
-                            <!-- Preparing -->
                             <div class="flex-1 min-w-[320px]">
                                 <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
                                     <span>Preparing</span> 
@@ -988,7 +1085,6 @@
                                 ${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}
                             </div>
 
-                            <!-- Done -->
                             <div class="flex-1 min-w-[320px]">
                                 <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
                                     <span>Ready / Served</span> 
@@ -1006,5 +1102,3 @@
     </script>
 </body>
 </html>
-
-
