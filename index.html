@@ -134,8 +134,9 @@
             categories: [],
             activeCategory: 'Banana Leaf',
             isCheckoutOpen: false,
+            isConfirmationOpen: false, 
             isPaymentOpen: false,
-            paymentStep: 'selection', // 'selection' or 'qr_fullscreen'
+            paymentStep: 'selection', 
             isAdminLoginOpen: false,
             tableNumber: '',
             isDemoMode: false,
@@ -200,7 +201,19 @@
             const basePath = "artifacts/ooru-mess-github/public/data";
 
             onSnapshot(query(collection(db, basePath, "categories"), orderBy("order")), (snap) => {
-                state.categories = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                const rawCategories = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                
+                // DEDUPLICATE CATEGORIES BY NAME
+                const uniqueCategories = [];
+                const seenNames = new Set();
+                rawCategories.forEach(cat => {
+                    if (!seenNames.has(cat.name)) {
+                        seenNames.add(cat.name);
+                        uniqueCategories.push(cat);
+                    }
+                });
+                state.categories = uniqueCategories;
+
                 if(state.categories.length === 0) {
                     seedDatabase(); 
                 } else if (!state.activeCategory && state.categories.length > 0) {
@@ -220,9 +233,6 @@
                 state.orders = snap.docs.map(d => ({id: d.id, ...d.data()}));
                 // Only render if kitchen view to avoid input disruption in customer view
                 if (state.view === 'kitchen') render();
-                // For customer view, we might need to update tab info if it changes, 
-                // but we should avoid full re-render if checkout is open.
-                // We'll let the user's interaction drive the checkout updates.
             }, (err) => {
                 if (err.code === 'permission-denied') {
                     handleError({code: 'permission-denied', message: 'Permission Denied.'});
@@ -314,7 +324,6 @@
         window.toggleCheckout = (isOpen) => {
             state.isCheckoutOpen = isOpen;
             if (isOpen) {
-               // Reset active tab info when opening checkout freshly
                state.tabTotal = 0; 
             }
             render();
@@ -326,7 +335,17 @@
             render();
         }
 
-        // Helper: Calculate if table has open tab
+        // Toggle Confirmation Modal
+        window.toggleConfirmation = (isOpen) => {
+            state.isConfirmationOpen = isOpen;
+            if (isOpen) {
+                state.isCheckoutOpen = false;
+            } else {
+                state.isCheckoutOpen = true;
+            }
+            render();
+        };
+
         function calculateTab(tableNum) {
             const openOrders = state.orders.filter(o => 
                 o.tableNumber === tableNum && 
@@ -336,47 +355,100 @@
             return openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
         }
 
-        // FIX: DOM-based update to prevent input focus loss
+        // FIX: Enhanced DOM-based update to SHOW BILL DETAILS
         window.setTableNumber = (num) => {
             state.tableNumber = num;
             
-            // Recalculate Tab info based on new table number
-            if (num) {
-                state.tabTotal = calculateTab(num);
-            } else {
-                state.tabTotal = 0;
-            }
+            // Get Open Orders
+            const openOrders = state.orders.filter(o => 
+                o.tableNumber === num && 
+                o.paymentStatus === 'pay_later' &&
+                o.status !== 'cancelled'
+            );
+            
+            state.tabTotal = openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
 
             // 1. Update Button State
             const btn = document.getElementById('confirmBtn');
+            const hasCartItems = state.cart.length > 0;
+            const hasTab = state.tabTotal > 0;
+            
             if (btn) {
-                btn.disabled = !num;
-                if (num) {
+                const canProceed = num && (hasCartItems || hasTab);
+                
+                btn.disabled = !canProceed;
+                
+                if (canProceed) {
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 } else {
                     btn.classList.add('opacity-50', 'cursor-not-allowed');
                 }
                 
-                // 2. Update Price on Button
                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                 const grandTotal = cartTotal + state.tabTotal;
                 
                 const priceSpan = btn.querySelector('span:last-child');
                 if (priceSpan) {
-                    priceSpan.textContent = `RM ${(state.tabTotal > 0 ? grandTotal : cartTotal).toFixed(2)}`;
+                    priceSpan.textContent = `RM ${grandTotal.toFixed(2)}`;
                 }
+                
+                const textSpan = btn.querySelector('span:first-child');
+                if (textSpan) {
+                    if (hasTab && !hasCartItems) textSpan.textContent = "Settle Bill";
+                    else if (hasTab && hasCartItems) textSpan.textContent = "Pay & Order";
+                    else textSpan.textContent = "Review Order";
+                }
+            }
+            
+            // 2. Hide "Empty Cart" message if Tab exists
+            const emptyMsg = document.getElementById('emptyCartMsg');
+            if (emptyMsg) {
+                if (hasTab && !hasCartItems) emptyMsg.classList.add('hidden');
+                else if (!hasTab && !hasCartItems) emptyMsg.classList.remove('hidden');
             }
 
             // 3. Update Tab Info Section (No Re-render)
             const tabContainer = document.getElementById('tabInfoContainer');
             if (tabContainer) {
-                if (state.tabTotal > 0) {
-                    tabContainer.innerHTML = `
-                        <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex justify-between items-center text-sm animate-fade-in">
-                            <span class="text-blue-800 font-medium">Previous Unpaid Tab:</span>
-                            <span class="font-bold text-blue-900">RM ${state.tabTotal.toFixed(2)}</span>
+                if (hasTab) {
+                    // Aggregate items for display
+                    const aggregated = {};
+                    openOrders.forEach(o => {
+                        if (o.items) {
+                            o.items.forEach(i => {
+                                const k = i.name + (i.variant || '');
+                                if(!aggregated[k]) aggregated[k] = { ...i, quantity: 0, total: 0 };
+                                aggregated[k].quantity += i.quantity;
+                                aggregated[k].total += (i.price * i.quantity);
+                            });
+                        }
+                    });
+                    
+                    const itemsHtml = Object.values(aggregated).map(i => `
+                        <div class="flex justify-between text-xs text-gray-600 border-b border-blue-100 last:border-0 py-2">
+                            <span class="flex items-center gap-2">
+                                <span class="bg-blue-100 text-blue-800 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold">${i.quantity}</span>
+                                <span>${i.name} ${i.variant ? `(${i.variant})` : ''}</span>
+                            </span>
+                            <span class="font-medium">RM ${i.total.toFixed(2)}</span>
                         </div>
-                        <div class="flex justify-between items-center mb-2 text-lg font-bold text-gray-900 border-t pt-2 mt-3">
+                    `).join('');
+
+                    tabContainer.innerHTML = `
+                        <div class="mt-4 bg-blue-50 border border-blue-100 rounded-xl overflow-hidden animate-fade-in">
+                            <div class="p-3 bg-blue-100/50 flex justify-between items-center">
+                                <span class="text-blue-800 font-bold text-sm">Previous Orders (Tab)</span>
+                            </div>
+                            <div class="p-3 bg-white/50">
+                                ${itemsHtml}
+                                <div class="flex justify-between items-center mt-2 pt-2 border-t border-blue-200 font-bold text-blue-900 text-sm">
+                                    <span>Tab Total</span>
+                                    <span>RM ${state.tabTotal.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center mb-2 text-lg font-bold text-gray-900 border-t pt-4 mt-4">
                             <span>Total Due:</span>
                             <span>RM ${(state.cart.reduce((s,i)=>s+(i.price*i.quantity),0) + state.tabTotal).toFixed(2)}</span>
                         </div>
@@ -445,33 +517,47 @@
         // --- Order & Payment Logic ---
 
         window.initiatePayment = () => {
-             if (!state.tableNumber || state.cart.length === 0) return;
-             state.isCheckoutOpen = false;
-             state.isPaymentOpen = true;
-             state.paymentStep = 'selection'; 
+             if (!state.tableNumber) return;
+             if (state.cart.length === 0 && state.tabTotal === 0) return;
+             
+             // If ordering new items, go to confirmation first
+             if (state.cart.length > 0) {
+                 state.isCheckoutOpen = false;
+                 state.isConfirmationOpen = true;
+             } else {
+                 // Just settling tab, skip confirmation, go straight to payment
+                 state.isCheckoutOpen = false;
+                 state.isPaymentOpen = true;
+                 state.paymentStep = 'selection';
+             }
              render();
         };
+
+        window.proceedToPaymentSelection = () => {
+            state.isConfirmationOpen = false;
+            state.isPaymentOpen = true;
+            state.paymentStep = 'selection';
+            render();
+        }
 
         window.showLargeQR = () => {
             state.paymentStep = 'qr_fullscreen';
             render();
         }
+        
+        window.backToSelection = () => {
+            state.paymentStep = 'selection';
+            render();
+        };
 
         window.confirmPayment = async (method) => {
-            // method: 'cash', 'qr', 'pay_later', 'settle_tab_cash', 'settle_tab_qr'
-            
             const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             
-            // Logic for Settling Tabs (Clearing previous 'pay_later' orders)
             if (method === 'settle_tab_cash' || method === 'settle_tab_qr') {
                 const realMethod = method === 'settle_tab_cash' ? 'cash' : 'qr';
-                
-                // 1. Create current order as PAID
                 if (state.cart.length > 0) {
                     await createOrder('paid', realMethod, cartTotal);
                 }
-
-                // 2. Find and update ALL previous 'pay_later' orders for this table to 'paid'
                 if (!state.isDemoMode) {
                     const basePath = "artifacts/ooru-mess-github/public/data";
                     const q = query(
@@ -479,32 +565,27 @@
                         where("tableNumber", "==", state.tableNumber),
                         where("paymentStatus", "==", "pay_later")
                     );
-                    
                     const snapshot = await getDocs(q);
                     const batch = writeBatch(db);
                     snapshot.docs.forEach(docSnap => {
-                        // Ensure we don't update cancelled orders
                         if (docSnap.data().status !== 'cancelled') {
                             batch.update(docSnap.ref, { paymentStatus: 'paid', paymentMethod: realMethod + '_tab_settled' });
                         }
                     });
                     await batch.commit();
                 } else {
-                    // Demo mode logic
                     state.orders.forEach(o => {
                         if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') {
                             o.paymentStatus = 'paid';
                         }
                     });
                 }
-
                 alert(`Full Bill Settled! Table ${state.tableNumber} is now clear.`);
                 resetCart();
                 render();
                 return;
             }
 
-            // Normal Pay Later Logic
             if (method === 'pay_later') {
                 await createOrder('pay_later', 'pay_later', cartTotal);
                 alert(`Order added to Tab for Table ${state.tableNumber}. Kitchen notified!`);
@@ -513,7 +594,6 @@
                 return;
             }
 
-            // Normal Instant Payment (Cash/QR)
             await createOrder(method === 'qr' ? 'paid' : 'unpaid', method, cartTotal); 
             
             if (method === 'cash') {
@@ -530,7 +610,7 @@
                 tableNumber: state.tableNumber,
                 items: state.cart,
                 total: total,
-                status: 'pending', // Kitchen status
+                status: 'pending', 
                 paymentStatus: paymentStatus,
                 paymentMethod: paymentMethod,
                 timestamp: serverTimestamp(),
@@ -551,6 +631,7 @@
             state.cart = [];
             state.tableNumber = '';
             state.isCheckoutOpen = false;
+            state.isConfirmationOpen = false;
             state.isPaymentOpen = false;
             state.tabTotal = 0;
         }
@@ -592,12 +673,28 @@
                 return;
             }
 
+            // --- SCROLL FIX START ---
+            let kdsScrollLeft = 0;
+            if (state.view === 'kitchen') {
+                const scrollContainer = document.getElementById('kds-container');
+                if (scrollContainer) kdsScrollLeft = scrollContainer.scrollLeft;
+            }
+            // --- SCROLL FIX END ---
+
             if (state.view === 'landing') renderLanding(appEl);
             else if (state.view === 'customer') renderCustomer(appEl);
             else if (state.view === 'kitchen') renderKitchen(appEl);
             else if (state.view === 'admin') renderAdmin(appEl);
             
             lucide.createIcons();
+
+            // --- SCROLL FIX RESTORE ---
+            if (state.view === 'kitchen') {
+                const scrollContainer = document.getElementById('kds-container');
+                if (scrollContainer) {
+                    scrollContainer.scrollLeft = kdsScrollLeft;
+                }
+            }
         }
 
         function renderError(container) {
@@ -913,24 +1010,65 @@
                             <button onclick="toggleCheckout(false)" class="p-2 hover:bg-white rounded-full transition"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
                         <div class="p-4 overflow-y-auto flex-1">
-                            ${state.cart.length ? cartItemsHtml : '<p class="text-center text-gray-400 py-10 flex flex-col items-center"><i data-lucide="shopping-cart" class="w-8 h-8 mb-2 opacity-50"></i>Cart is empty</p>'}
+                            ${state.cart.length ? cartItemsHtml : '<p id="emptyCartMsg" class="text-center text-gray-400 py-10 flex flex-col items-center"><i data-lucide="shopping-cart" class="w-8 h-8 mb-2 opacity-50"></i>Cart is empty</p>'}
                             
-                            ${state.cart.length ? `
                             <div class="mt-4 pt-4 border-t border-dashed border-gray-300">
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Table Number <span class="text-red-500">*</span></label>
                                 <input type="number" oninput="setTableNumber(this.value)" value="${state.tableNumber}" placeholder="e.g. 5" class="w-full p-3 border rounded-xl text-center text-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 placeholder-gray-300">
-                                <p class="text-xs text-center text-gray-400 mt-2">Enter the number on your table stand</p>
-                            </div>` : ''}
-
-                            <!-- Dynamic Tab Info Container -->
-                            <div id="tabInfoContainer" class="hidden">
-                                <!-- Content injected by JS -->
+                                <p class="text-xs text-center text-gray-400 mt-2">Enter number to check bill or place order</p>
                             </div>
+
+                            <div id="tabInfoContainer" class="hidden"></div>
                         </div>
                         <div class="p-4 border-t bg-gray-50 sm:rounded-b-2xl space-y-3">
                             <button id="confirmBtn" onclick="initiatePayment()" disabled class="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg opacity-50 transition-opacity flex justify-center items-center gap-2 cursor-not-allowed">
                                 <span>Proceed to Payment</span>
                                 <span class="bg-white/20 px-2 py-0.5 rounded text-sm">RM ${(state.tabTotal > 0 ? grandTotal : cartTotal).toFixed(2)}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }
+
+            let confirmationModalHtml = '';
+            if(state.isConfirmationOpen) {
+                const cartItemsSummary = state.cart.map(item => `
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                        <div class="flex items-center gap-3">
+                            <span class="bg-gray-100 text-gray-700 font-bold w-6 h-6 flex items-center justify-center rounded-full text-xs">${item.quantity}x</span>
+                            <span class="text-sm font-medium text-gray-800">${item.name}</span>
+                        </div>
+                        <span class="text-sm font-bold text-gray-900">RM ${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                `).join('');
+
+                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+                confirmationModalHtml = `
+                <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4">
+                    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl animate-slide-up p-6">
+                        <div class="text-center mb-6">
+                            <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i data-lucide="check-circle-2" class="w-6 h-6 text-orange-600"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-gray-900">Confirm Order</h2>
+                            <p class="text-xs text-gray-500">Table ${state.tableNumber}</p>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-xl p-4 mb-6 max-h-60 overflow-y-auto">
+                            ${cartItemsSummary}
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t border-dashed border-gray-300">
+                                <span class="font-bold text-gray-600">Total</span>
+                                <span class="font-bold text-lg text-orange-600">RM ${cartTotal.toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <button onclick="proceedToPaymentSelection()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transition flex items-center justify-center gap-2">
+                                Confirm & Pay
+                            </button>
+                            <button onclick="toggleConfirmation(false)" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
+                                Back to Edit
                             </button>
                         </div>
                     </div>
@@ -968,7 +1106,7 @@
                                 </div>
 
                                 <!-- Option 1: QR -->
-                                <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `showLargeQR()`}">
+                                <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="showLargeQR()">
                                     <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition">
                                         <i data-lucide="qr-code" class="w-6 h-6 text-orange-600"></i>
                                     </div>
@@ -1019,7 +1157,7 @@
                                         <i data-lucide="check-circle" class="w-5 h-5"></i>
                                         I have Paid
                                     </button>
-                                    <button onclick="initiatePayment()" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
+                                    <button onclick="backToSelection()" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
                                         Back
                                     </button>
                                 </div>
@@ -1031,7 +1169,7 @@
             }
 
             let floatingCart = '';
-            if (cartCount > 0 && !state.isCheckoutOpen && !state.isPaymentOpen) {
+            if (cartCount > 0 && !state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
                 floatingCart = `
                 <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
                     <div class="max-w-4xl mx-auto flex items-center justify-between">
@@ -1041,6 +1179,14 @@
                         </div>
                         <button onclick="toggleCheckout(true)" class="bg-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-700 transition transform active:scale-95">View Cart</button>
                     </div>
+                </div>`;
+            } else if (!state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
+                // Empty cart check bill logic
+                 floatingCart = `
+                <div class="fixed bottom-4 right-4 z-30">
+                    <button onclick="toggleCheckout(true)" class="bg-white border border-gray-200 text-gray-600 p-3 rounded-full shadow-lg flex items-center gap-2 font-bold text-sm hover:bg-gray-50 transition">
+                        <i data-lucide="receipt" class="w-5 h-5"></i> Check Bill
+                    </button>
                 </div>`;
             }
 
@@ -1066,20 +1212,19 @@
                         ${tabsHtml}
                     </div>
 
-                    <!-- Updated to use specific grid for compact layout -->
                     <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                         ${itemsHtml.length ? itemsHtml : `<div class="col-span-full text-center py-10 text-gray-400">No items in this category yet.</div>`}
                     </div>
 
                     ${floatingCart}
                     ${modalHtml}
+                    ${confirmationModalHtml}
                     ${paymentModalHtml}
                 </div>
             `;
         }
 
         function renderKitchen(container) {
-            // Helper to check if order is from today
             const isToday = (timestamp) => {
                 if (!timestamp) return false;
                 const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -1089,7 +1234,6 @@
                        date.getFullYear() === today.getFullYear();
             };
 
-            // Filter for only today's orders first
             const todaysOrders = state.orders.filter(o => isToday(o.timestamp));
 
             const pendingOrders = todaysOrders.filter(o => o.status === 'pending');
@@ -1174,7 +1318,7 @@
                         </div>
                     </div>
                     
-                    <div class="flex-1 overflow-x-auto p-4">
+                    <div id="kds-container" class="flex-1 overflow-x-auto p-4">
                         <div class="flex gap-4 min-w-[1000px]">
                             <!-- Pending -->
                             <div class="flex-1 min-w-[320px]">
