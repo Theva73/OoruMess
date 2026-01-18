@@ -128,7 +128,40 @@
             }
         }
 
-    </style>
+    
+/* ===== Landscape Button Size Fix ===== */
+@media screen and (orientation: landscape) {
+    .landing-actions {
+        align-items: flex-start;
+    }
+
+    .landing-actions button {
+        width: auto !important;
+        min-width: 260px;
+        padding-left: 2rem;
+        padding-right: 2rem;
+        display: inline-flex;
+        justify-content: center;
+        white-space: nowrap;
+        border-radius: 9999px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+}
+
+
+/* ===== Premium Button Style (Portrait + Landscape) ===== */
+.landing-actions button{
+    border-radius: 9999px !important; /* pill */
+}
+
+/* Portrait: keep full-width but add premium depth */
+@media screen and (orientation: portrait){
+    .landing-actions button{
+        filter: drop-shadow(0 12px 22px rgba(0,0,0,0.14));
+    }
+}
+
+</style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
