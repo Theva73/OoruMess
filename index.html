@@ -90,6 +90,24 @@
         button, .truncate {
             white-space: nowrap;
         }
+
+        /* ===== Orientation-based Landing Button Position (Landing only) ===== */
+        /* Portrait (default): keep buttons at bottom center (existing layout) */
+        .landing-actions { position: relative; }
+
+        /* Landscape: move buttons to the RIGHT side, vertically centered */
+        @media screen and (orientation: landscape) {
+            .landing-actions {
+                position: fixed;
+                right: calc(env(safe-area-inset-right, 0px) + 20px);
+                top: 50%;
+                transform: translateY(-50%);
+                max-width: 340px;
+                margin-bottom: 0 !important;
+                z-index: 30;
+            }
+        }
+
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -719,7 +737,7 @@
                     <img src="oorumess.png" alt="Ooru Mess Logo" class="max-w-[80vw] max-h-[50vh] object-contain drop-shadow-2xl">
                   </div>
 
-                  <div class="w-full max-w-md space-y-4 mb-8">
+                  <div class="landing-actions w-full max-w-md space-y-4 mb-8">
                     <button class="btn-3d btn-orange w-full py-4 text-white rounded-xl text-lg font-extrabold tracking-wide flex items-center justify-center gap-2" onclick="setView('customer')">
                         <span>Place Order</span>
                         <i data-lucide="utensils" class="w-5 h-5"></i>
