@@ -815,7 +815,19 @@
             else if (state.view === 'admin') renderAdmin(appEl);
             
             lucide.createIcons();
-            
+
+            if (state.view === 'landing') {
+                // iOS tap reliability: bind settings button via pointer/touch events
+                const sb = document.getElementById('settingsBtn');
+                if (sb && !sb.dataset.bound) {
+                    sb.dataset.bound = '1';
+                    const go = (e) => { e.preventDefault(); e.stopPropagation(); window.setView('admin'); };
+                    sb.addEventListener('click', go, { passive: false });
+                    sb.addEventListener('pointerdown', go, { passive: false });
+                    sb.addEventListener('touchstart', go, { passive: false });
+                }
+            }
+
             if (state.view === 'kitchen') {
                 const scrollContainer = document.getElementById('kds-container');
                 if (scrollContainer) scrollContainer.scrollLeft = kdsScrollLeft;
@@ -839,7 +851,7 @@
                   <div class="landing-pattern"></div>
                   
                   <div class="landing-top-actions">
-                    <button onclick="setView('admin')"
+                    <button onclick="window.setView('admin')" id="settingsBtn"
                             aria-label="Settings"
                             title="Settings"
                             class="w-11 h-11 rounded-full bg-white/70 backdrop-blur-md border border-white/60 shadow-lg flex items-center justify-center text-gray-700 hover:text-gray-900 active:scale-95 transition">
