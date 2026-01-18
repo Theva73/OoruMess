@@ -217,7 +217,26 @@
             pointer-events: auto;
         }
         .landing-top-actions button{ pointer-events: auto; }
-        </style>
+        
+
+/* ===== Settings Gear: Large Hit Area (based on your old working page) ===== */
+.settings-hit-area{
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 6px);
+    right: 0px;
+    width: min(96px, 18vw);
+    height: min(88px, 14vh);
+    opacity: 0.01;              /* tiny opacity makes iOS reliably register taps */
+    background: #fff;           /* invisible due to opacity, but provides a tappable box */
+    z-index: 100000;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+</style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
@@ -849,14 +868,20 @@
             container.innerHTML = `
                 <div class="landing-screen p-6">
                   <div class="landing-pattern"></div>
+                  <button type="button" class="settings-hit-area" aria-label="Admin Settings" title="Admin Settings" onclick="window.setView('admin')"></button>
                   
                   <div class="landing-top-actions">
-                    <button onclick="window.setView('admin')" id="settingsBtn"
-                            aria-label="Settings"
-                            title="Settings"
-                            class="w-11 h-11 rounded-full bg-white/70 backdrop-blur-md border border-white/60 shadow-lg flex items-center justify-center text-gray-700 hover:text-gray-900 active:scale-95 transition">
+                    <!-- Visible gear (non-click) + invisible large hit area (click) for iOS reliability -->
+                    <div class="relative w-12 h-12">
+                      <div class="absolute inset-0 rounded-full bg-white/70 backdrop-blur-md border border-white/60 shadow-lg flex items-center justify-center text-gray-700 pointer-events-none">
                         <i data-lucide="settings" class="w-5 h-5"></i>
-                    </button>
+                      </div>
+                      <button type="button"
+                              aria-label="Settings"
+                              title="Settings"
+                              onclick="(function(e){ try{ e&&e.preventDefault&&e.preventDefault(); e&&e.stopPropagation&&e.stopPropagation(); }catch(_){} window.setView('admin'); })(event)"
+                              class="absolute -inset-2 opacity-0 z-50 cursor-pointer"></button>
+                    </div>
                   </div>
 
                   <div class="landing-logo flex-1 flex items-center justify-center w-full">
