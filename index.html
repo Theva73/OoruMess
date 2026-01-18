@@ -90,21 +90,41 @@
         button, .truncate {
             white-space: nowrap;
         }
+    
 
-        /* ===== Orientation-based Landing Button Position (Landing only) ===== */
-        /* Portrait (default): keep buttons at bottom center (existing layout) */
-        .landing-actions { position: relative; }
+        /* ===== Landing: responsive button placement (Portrait bottom, Landscape right) ===== */
+        .landing-logo { width: 100%; }
+        .landing-actions { width: 100%; max-width: 28rem; } /* ~ max-w-md */
 
-        /* Landscape: move buttons to the RIGHT side, vertically centered */
         @media screen and (orientation: landscape) {
+            /* Use layout (not fixed positioning) to avoid overlapping the logo */
+            .landing-screen {
+                flex-direction: row;
+                justify-content: center;
+                align-items: center;
+                gap: 24px;
+                padding-left: max(16px, env(safe-area-inset-left));
+                padding-right: max(16px, env(safe-area-inset-right));
+                padding-top: max(16px, env(safe-area-inset-top));
+                padding-bottom: max(16px, env(safe-area-inset-bottom));
+            }
+            .landing-logo {
+                flex: 1 1 auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 0;
+            }
             .landing-actions {
-                position: fixed;
-                right: calc(env(safe-area-inset-right, 0px) + 20px);
-                top: 50%;
-                transform: translateY(-50%);
-                max-width: 340px;
+                flex: 0 0 auto;
+                width: min(420px, 42vw);
+                max-width: 420px;
                 margin-bottom: 0 !important;
-                z-index: 30;
+            }
+            .landing-actions button {
+                padding-top: 0.9rem;
+                padding-bottom: 0.9rem;
+                font-size: 1.05rem;
             }
         }
 
@@ -733,7 +753,7 @@
                     <button onclick="setView('admin')" class="w-10 h-10 rounded-full bg-white/50 text-orange-900/20"></button>
                   </div>
 
-                  <div class="flex-1 flex items-center justify-center w-full">
+                  <div class="landing-logo flex-1 flex items-center justify-center w-full">
                     <img src="oorumess.png" alt="Ooru Mess Logo" class="max-w-[80vw] max-h-[50vh] object-contain drop-shadow-2xl">
                   </div>
 
@@ -1090,3 +1110,4 @@
     </script>
 </body>
 </html>
+
