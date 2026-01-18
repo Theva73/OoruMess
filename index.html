@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Ooru Mess | Digital Ordering</title>
     
     <!-- ICON CONFIGURATION -->
@@ -54,6 +54,56 @@
         .item-btn:active {
             transform: scale(0.96);
         }
+    
+        /* ===== Logo-only Landing (no stretch, portrait + landscape) ===== */
+        .landing-logo-page{
+            min-height: 100vh;
+            min-height: 100dvh;
+            width: 100%;
+            background: #f6f1e6; /* pearl/off-white */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            padding-top: calc(24px + env(safe-area-inset-top));
+            padding-bottom: calc(24px + env(safe-area-inset-bottom));
+            position: relative;
+            overflow: hidden;
+        }
+        .landing-logo-img{
+            width: min(920px, 92vw);
+            height: auto;
+            max-height: 88dvh;
+            max-height: 88vh;
+            object-fit: contain; /* KEY: no stretching */
+            display: block;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        .landing-logo-img{ animation: landingFade .55s ease-out; }
+        @keyframes landingFade{
+            from { opacity: 0; transform: scale(0.985); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .landing-tap-layer{
+            position: absolute;
+            inset: 0;
+            background: transparent;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .landing-admin-hotspot{
+            position: absolute;
+            top: calc(10px + env(safe-area-inset-top));
+            right: 10px;
+            width: 56px;
+            height: 56px;
+            border-radius: 999px;
+            background: transparent; /* invisible hotspot */
+            z-index: 5;
+        }
+        /* ===== End Logo-only Landing ===== */
+
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -768,6 +818,7 @@
             </div>`;
         }
 
+        
         function renderLanding(container) {
             let loginModal = '';
             if (state.isAdminLoginOpen) {
@@ -801,38 +852,12 @@
             }
 
             container.innerHTML = `
-                <div class="h-dvh w-full relative overflow-hidden" 
-                     style="background-image: url('https://theva73.github.io/OoruMess/oorumess.png'); 
-                            background-size: 100% 100%; 
-                            background-position: center; 
-                            background-repeat: no-repeat;">
-                    
-                    <!-- Dark overlay if needed, currently transparent -->
-                    <div class="absolute inset-0 bg-transparent"></div>
+                <div class="landing-logo-page">
+                    <div class="landing-tap-layer" onclick="setView('customer')" title="Tap to start"></div>
+                    <button class="landing-admin-hotspot" onclick="setView('admin')" title="Admin Settings"></button>
+                    <img src="oorumess.png" alt="Ooru Mess" class="landing-logo-img" />
 
-                    <!-- 1. Settings / Gear Icon (Top Right Corner) -->
-                    <!-- MOVED: 5% from top as requested, INCREASED Z-INDEX -->
-                    <button onclick="setView('admin')" 
-                            class="absolute top-[5%] right-0 w-[15%] h-[10%] opacity-0 z-[60] cursor-pointer"
-                            title="Admin Settings">
-                    </button>
-                    
-                    <!-- 2. Place Order (Middle Band) -->
-                    <!-- Keep at 48% as previously requested, INCREASED Z-INDEX -->
-                    <button onclick="setView('customer')" 
-                            class="absolute top-[48%] left-[10%] w-[80%] h-[20%] opacity-0 z-[60] cursor-pointer"
-                            title="Place Order">
-                    </button>
-
-                    <!-- 3. Kitchen View (Lower Band) -->
-                    <!-- MOVED LOWER: 70% from top as requested, INCREASED Z-INDEX -->
-                    <button onclick="setView('kitchen')" 
-                            class="absolute top-[70%] left-[10%] w-[80%] h-[15%] opacity-0 z-[60] cursor-pointer"
-                            title="Kitchen View">
-                    </button>
-
-                    ${state.isDemoMode ? '<div class="absolute top-6 left-6 bg-orange-900/80 text-white px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50 pointer-events-none z-50">DEMO MODE</div>' : ''}
-                    
+                    ${state.isDemoMode ? '<div class="absolute top-6 left-6 bg-orange-900/80 text-white px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50 pointer-events-none z-10">DEMO MODE</div>' : ''}
                     ${loginModal}
                 </div>
             `;
@@ -841,6 +866,7 @@
                 setTimeout(() => document.getElementById('adminPinInput')?.focus(), 100);
             }
         }
+
 
         function renderAdmin(container) {
             const categories = state.categories.sort((a,b) => a.order - b.order);
