@@ -191,46 +191,44 @@ html, body {
 /* ===== End Fullscreen Landing ===== */
 
 
-/* ===== Landing Landscape Layout (better horizontal view) ===== */
+
+/* ===== Landing Landscape Layout (stacked buttons) ===== */
 @media (orientation: landscape) and (max-height: 520px){
   .landing-screen{
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 28px;
-    padding-left: calc(18px + env(safe-area-inset-left));
-    padding-right: calc(18px + env(safe-area-inset-right));
-    padding-top: calc(10px + env(safe-area-inset-top));
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    gap: 36px;
   }
 
   .landing-logo-wrap{
-    flex: 1;
-    width: auto;
-    padding-top: 0;
-    align-items: center;     /* center logo vertically */
-    justify-content: flex-end; /* push logo slightly toward buttons */
+    flex: 1.2;
+    align-items: center;
+    justify-content: center;
   }
 
   .landing-logo-wrap img{
-    max-width: min(52vw, 760px);
-    max-height: 78vh;
+    max-width: min(55vw, 780px);
+    max-height: 80vh;
   }
 
   .landing-actions{
-    width: min(420px, 40vw);
-    margin: 0;
-    padding: 0;
-    gap: 12px;
+    flex: 0.8;
+    display: flex;
+    flex-direction: column;   /* STACK VERTICALLY */
+    align-items: stretch;
+    width: min(360px, 32vw);
+    gap: 18px;
   }
 
   .landing-btn{
-    padding: 14px 16px;
-    font-size: 18px;
-    border-radius: 16px;
+    padding: 18px 20px;
+    font-size: 20px;
+    border-radius: 18px;
   }
 }
 /* ===== End Landing Landscape Layout ===== */
+
 
 </style>
 </head>
