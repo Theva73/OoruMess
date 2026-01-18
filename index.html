@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ooru Mess | Digital Ordering</title>
     
     <!-- ICON CONFIGURATION -->
@@ -16,7 +16,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         body { font-family: 'Poppins', sans-serif; touch-action: manipulation; }
@@ -34,19 +34,27 @@
         }
         .pulse-status { animation: pulse-green 2s infinite; }
         
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+        /* Custom utility for dynamic viewport height */
         .h-dvh { height: 100vh; height: 100dvh; }
         
+        /* Compact Item Button Styles */
         .item-btn {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .item-btn:active {
             transform: scale(0.96);
         }
-
-        /* --- Landing Page Styles --- */
+    /* --- Landing Page Styles --- */
         .landing-screen {
             position: fixed;
             inset: 0;
@@ -128,114 +136,52 @@
             }
         }
 
-    
-/* ===== Landscape Button Size Fix ===== */
-@media screen and (orientation: landscape) {
+
+
+/* ===== Landing Page Button Size Refinement ===== */
+.landing-actions button {
+    max-width: 320px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    font-size: 1rem;
+}
+
+/* Portrait – keep centered */
+@media (orientation: portrait) {
     .landing-actions {
-        align-items: flex-start;
+        align-items: center;
     }
+}
 
+/* Landscape – slightly tighter */
+@media (orientation: landscape) {
     .landing-actions button {
-        width: auto !important;
-        min-width: 260px;
-        padding-left: 2rem;
-        padding-right: 2rem;
-        display: inline-flex;
-        justify-content: center;
-        white-space: nowrap;
-        border-radius: 9999px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        max-width: 300px;
     }
 }
 
 
-/* ===== Premium Button Style (Portrait + Landscape) ===== */
+
+
 .landing-actions button{
-    border-radius: 9999px !important; /* pill */
-}
-
-/* Portrait: keep full-width but add premium depth */
-@media screen and (orientation: portrait){
-    .landing-actions button{
-        filter: drop-shadow(0 12px 22px rgba(0,0,0,0.14));
-    }
+    margin-left: auto;
+    margin-right: auto;
 }
 
 
-
-/* Portrait: slightly larger, more presence */
-@media screen and (orientation: portrait) {
-    .landing-logo {
-        max-width: 92vw;
-        max-height: 62vh;
-    }
+/* ===== Restore Stacked Buttons & Center Them ===== */
+.landing-actions{
+    display: flex;
+    flex-direction: column;   /* restore vertical stack */
+    align-items: center;      /* center horizontally */
+    justify-content: center;
 }
 
-/* Landscape: balance with buttons */
-@media screen and (orientation: landscape) {
-    .landing-logo {
-        max-width: 42vw;
-        max-height: 70vh;
-    }
+.landing-actions button{
+    margin-left: auto;
+    margin-right: auto;
 }
 
-
-/* ===== Logo Size Harmonisation (Stronger) ===== */
-.landing-logo{
-    max-width: 96vw;
-    max-height: 70vh;
-    transform: scale(1.08);
-    transform-origin: center;
-}
-
-/* Portrait: clearly larger, keep comfortable breathing room */
-@media screen and (orientation: portrait){
-    .landing-logo{
-        max-width: 98vw;
-        max-height: 74vh;
-        transform: scale(1.12);
-    }
-}
-
-/* Landscape: slightly larger in left column */
-@media screen and (orientation: landscape){
-    .landing-logo{
-        max-width: 48vw;
-        max-height: 78vh;
-        transform: scale(1.10);
-    }
-}
-
-
-
-        /* Ensure gear is always clickable (above all layers) */
-        .landing-top-actions{
-            position: fixed;
-            top: calc(env(safe-area-inset-top, 0px) + 14px);
-            right: calc(env(safe-area-inset-right, 0px) + 14px);
-            z-index: 9999;
-            pointer-events: auto;
-        }
-        .landing-top-actions button{ pointer-events: auto; }
-        
-
-/* ===== Settings Gear: Large Hit Area (based on your old working page) ===== */
-.settings-hit-area{
-    position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 6px);
-    right: 0px;
-    width: min(96px, 18vw);
-    height: min(88px, 14vh);
-    opacity: 0.01;              /* tiny opacity makes iOS reliably register taps */
-    background: #fff;           /* invisible due to opacity, but provides a tappable box */
-    z-index: 100000;
-    border: 0;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-}
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -326,6 +272,7 @@
             error: null,
             adminPin: '',
             adminAuthenticated: false,
+            adminLoginError: '', 
             adminExpandedCategories: {},
             tabTotal: 0,
             checkoutMode: 'cart'
@@ -384,6 +331,8 @@
 
             onSnapshot(query(collection(db, basePath, "categories"), orderBy("order")), (snap) => {
                 const rawCategories = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                
+                // DEDUPLICATE CATEGORIES BY NAME
                 const uniqueCategories = [];
                 const seenNames = new Set();
                 rawCategories.forEach(cat => {
@@ -409,9 +358,13 @@
                 render();
             });
 
+            // Listen for orders to update Kitchen View AND to calculate Tabs
             onSnapshot(query(collection(db, basePath, "orders"), orderBy("timestamp", "desc")), (snap) => {
                 state.orders = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                // Only render if kitchen view to avoid input disruption in customer view
                 if (state.view === 'kitchen') render();
+                
+                // PROACTIVE UPDATE: If checkout is open and table number is set, update tab info
                 if (state.isCheckoutOpen && state.tableNumber) {
                      setTableNumber(state.tableNumber);
                 }
@@ -469,6 +422,10 @@
                 state.view = 'admin';
             } else {
                 state.adminLoginError = 'Incorrect PIN';
+                const container = document.getElementById('pinContainer');
+                container.classList.remove('animate-shake');
+                void container.offsetWidth; 
+                container.classList.add('animate-shake');
             }
             render();
         };
@@ -499,11 +456,14 @@
             render();
         };
 
+        // FIX: Proactively check tab when opening checkout
         window.toggleCheckout = (isOpen, mode = null) => {
             state.isCheckoutOpen = isOpen;
             if (isOpen) state.checkoutMode = mode || state.checkoutMode || 'cart';
             render();
+            // After render, if we have a table number, trigger check immediately
             if (isOpen && state.tableNumber) {
+                // Small delay to ensure DOM is ready
                 setTimeout(() => setTableNumber(state.tableNumber), 50);
             }
         };
@@ -524,6 +484,17 @@
             render();
         };
 
+        function calculateTab(tableNum) {
+            const openOrders = state.orders.filter(o => 
+                o.tableNumber === tableNum && 
+                o.paymentStatus === 'pay_later' &&
+                o.status !== 'cancelled'
+            );
+            return openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+        }
+
+
+        // NEW: Aggregate all pending (unpaid tab) bills across ALL tables
         function getAllPendingTabs() {
             const open = state.orders.filter(o =>
                 o.paymentStatus === 'pay_later' &&
@@ -542,9 +513,11 @@
             return Object.values(byTable).sort((a, b) => Number(a.table) - Number(b.table));
         }
 
+        // Enhanced DOM-based update to SHOW BILL DETAILS and BILL COUNT
         window.setTableNumber = (num) => {
             state.tableNumber = num;
             
+            // Get Open Orders
             const openOrders = state.orders.filter(o => 
                 o.tableNumber === num && 
                 o.paymentStatus === 'pay_later' &&
@@ -554,13 +527,16 @@
             state.tabTotal = openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
             const pendingBillCount = openOrders.length; 
 
+            // 1. Update Button State
             const btn = document.getElementById('confirmBtn');
             const hasCartItems = state.cart.length > 0;
             const hasTab = state.tabTotal > 0;
             
             if (btn) {
                 const canProceed = num && (hasCartItems || hasTab);
+                
                 btn.disabled = !canProceed;
+                
                 if (canProceed) {
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 } else {
@@ -571,7 +547,9 @@
                 const grandTotal = cartTotal + state.tabTotal;
                 
                 const priceSpan = btn.querySelector('span:last-child');
-                if (priceSpan) priceSpan.textContent = `RM ${grandTotal.toFixed(2)}`;
+                if (priceSpan) {
+                    priceSpan.textContent = `RM ${grandTotal.toFixed(2)}`;
+                }
                 
                 const textSpan = btn.querySelector('span:first-child');
                 if (textSpan) {
@@ -581,15 +559,18 @@
                 }
             }
             
+            // 2. Hide "Empty Cart" message if Tab exists
             const emptyMsg = document.getElementById('emptyCartMsg');
             if (emptyMsg) {
                 if (hasTab && !hasCartItems) emptyMsg.classList.add('hidden');
                 else if (!hasTab && !hasCartItems) emptyMsg.classList.remove('hidden');
             }
 
+            // 3. Update Tab Info Section (No Re-render)
             const tabContainer = document.getElementById('tabInfoContainer');
             if (tabContainer) {
                 if (hasTab) {
+                    // Aggregate items for display
                     const aggregated = {};
                     openOrders.forEach(o => {
                         if (o.items) {
@@ -626,6 +607,11 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="flex justify-between items-center mb-2 text-lg font-bold text-gray-900 border-t pt-4 mt-4">
+                            <span>Total Due:</span>
+                            <span>RM ${(state.cart.reduce((s,i)=>s+(i.price*i.quantity),0) + state.tabTotal).toFixed(2)}</span>
+                        </div>
                     `;
                     tabContainer.classList.remove('hidden');
                 } else {
@@ -635,9 +621,12 @@
             }
         };
 
+        // NEW: Quickly load a pending bill table from the list inside the Check Bill card
         window.selectPendingTable = (tableNum) => {
             state.tableNumber = String(tableNum);
+            // Re-render so the input reflects the table number
             render();
+            // After render, run the same bill-check logic to populate tab details
             setTimeout(() => {
                 const input = document.getElementById('tableNumberInput');
                 if (input) input.value = String(tableNum);
@@ -652,12 +641,18 @@
             setupDataListeners(); 
         };
 
+        // --- Admin Actions ---
+
         window.handleAddCategory = async (e) => {
             e.preventDefault();
             const name = document.getElementById('newCatName').value;
             if(!name) return;
+            
             const basePath = "artifacts/ooru-mess-github/public/data";
-            await addDoc(collection(db, basePath, "categories"), { name: name, order: state.categories.length + 1 });
+            await addDoc(collection(db, basePath, "categories"), {
+                name: name,
+                order: state.categories.length + 1
+            });
             document.getElementById('newCatName').value = '';
         };
 
@@ -667,9 +662,14 @@
             const variant = document.getElementById('itemVariant').value;
             const price = parseFloat(document.getElementById('itemPrice').value);
             const category = document.getElementById('itemCategory').value;
+
             if(!name || !price || !category) return;
+
             const basePath = "artifacts/ooru-mess-github/public/data";
-            await addDoc(collection(db, basePath, "menu"), { name, variant, price, category });
+            await addDoc(collection(db, basePath, "menu"), {
+                name, variant, price, category
+            });
+            
             document.getElementById('itemName').value = '';
             document.getElementById('itemVariant').value = '';
             document.getElementById('itemPrice').value = '';
@@ -687,13 +687,18 @@
             render();
         }
 
+        // --- Order & Payment Logic ---
+
         window.initiatePayment = () => {
              if (!state.tableNumber) return;
              if (state.cart.length === 0 && state.tabTotal === 0) return;
+             
+             // If ordering new items, go to confirmation first
              if (state.cart.length > 0) {
                  state.isCheckoutOpen = false;
                  state.isConfirmationOpen = true;
              } else {
+                 // Just settling tab, skip confirmation, go straight to payment
                  state.isCheckoutOpen = false;
                  state.isPaymentOpen = true;
                  state.paymentStep = 'selection';
@@ -728,7 +733,11 @@
                 }
                 if (!state.isDemoMode) {
                     const basePath = "artifacts/ooru-mess-github/public/data";
-                    const q = query(collection(db, basePath, "orders"), where("tableNumber", "==", state.tableNumber), where("paymentStatus", "==", "pay_later"));
+                    const q = query(
+                        collection(db, basePath, "orders"), 
+                        where("tableNumber", "==", state.tableNumber),
+                        where("paymentStatus", "==", "pay_later")
+                    );
                     const snapshot = await getDocs(q);
                     const batch = writeBatch(db);
                     snapshot.docs.forEach(docSnap => {
@@ -739,7 +748,9 @@
                     await batch.commit();
                 } else {
                     state.orders.forEach(o => {
-                        if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') o.paymentStatus = 'paid';
+                        if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') {
+                            o.paymentStatus = 'paid';
+                        }
                     });
                 }
                 alert(`Full Bill Settled! Table ${state.tableNumber} is now clear.`);
@@ -808,25 +819,41 @@
             }
             try {
                 const basePath = "artifacts/ooru-mess-github/public/data";
-                await updateDoc(doc(db, basePath, "orders", orderId), { status: newStatus });
-            } catch (e) { console.error(e); }
+                const orderRef = doc(db, basePath, "orders", orderId);
+                await updateDoc(orderRef, { status: newStatus });
+            } catch (e) {
+                console.error(e);
+            }
         };
+
+
+        // --- Render Functions ---
 
         function render() {
             const appEl = document.getElementById('app');
-            if (state.error) { renderError(appEl); return; }
+            
+            if (state.error) {
+                renderError(appEl);
+                return;
+            }
+
             if (state.loading) {
-                appEl.innerHTML = `<div class="h-dvh flex items-center justify-center flex-col text-orange-600"><i data-lucide="loader-2" class="w-12 h-12 mb-4 animate-spin"></i><p class="font-bold">Loading Menu...</p></div>`;
+                appEl.innerHTML = `
+                    <div class="h-dvh flex items-center justify-center flex-col text-orange-600">
+                        <i data-lucide="loader-2" class="w-12 h-12 mb-4 animate-spin"></i>
+                        <p class="font-bold">Loading Menu...</p>
+                    </div>`;
                 lucide.createIcons();
                 return;
             }
-            
-            // Scroll Fix
+
+            // --- SCROLL FIX START ---
             let kdsScrollLeft = 0;
             if (state.view === 'kitchen') {
                 const scrollContainer = document.getElementById('kds-container');
                 if (scrollContainer) kdsScrollLeft = scrollContainer.scrollLeft;
             }
+            // --- SCROLL FIX END ---
 
             if (state.view === 'landing') renderLanding(appEl);
             else if (state.view === 'customer') renderCustomer(appEl);
@@ -835,145 +862,253 @@
             
             lucide.createIcons();
 
-            if (state.view === 'landing') {
-                // iOS tap reliability: bind settings button via pointer/touch events
-                const sb = document.getElementById('settingsBtn');
-                if (sb && !sb.dataset.bound) {
-                    sb.dataset.bound = '1';
-                    const go = (e) => { e.preventDefault(); e.stopPropagation(); window.setView('admin'); };
-                    sb.addEventListener('click', go, { passive: false });
-                    sb.addEventListener('pointerdown', go, { passive: false });
-                    sb.addEventListener('touchstart', go, { passive: false });
-                }
-            }
-
+            // --- SCROLL FIX RESTORE ---
             if (state.view === 'kitchen') {
                 const scrollContainer = document.getElementById('kds-container');
-                if (scrollContainer) scrollContainer.scrollLeft = kdsScrollLeft;
+                if (scrollContainer) {
+                    scrollContainer.scrollLeft = kdsScrollLeft;
+                }
             }
         }
 
         function renderError(container) {
+            const isPermission = state.error?.code === 'permission-denied';
+            const isProtocol = state.error?.code === 'protocol-error';
+            
             container.innerHTML = `
             <div class="h-dvh bg-white flex flex-col items-center justify-center p-6 text-center">
                 <div class="bg-red-50 p-6 rounded-2xl max-w-lg w-full border border-red-100 shadow-xl">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-triangle" class="w-8 h-8 text-red-600"></i>
+                    </div>
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">Setup Required</h2>
                     <p class="text-gray-600 mb-4">${state.error.message}</p>
-                    <button onclick="enterDemoMode()" class="btn-3d btn-orange w-full py-3 font-bold text-lg rounded-xl text-white">Enter Demo Mode</button>
+                    ${isPermission ? `
+                    <div class="text-left bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono overflow-x-auto mb-4">
+                        <p class="text-green-400 mb-2">// Update Firebase Rules</p>
+                        match /databases/{database}/documents { allow read, write: if true; }
+                    </div>` : ''}
+                    <div class="flex flex-col gap-3">
+                        ${!isProtocol ? '<button onclick="window.location.reload()" class="bg-gray-800 text-white py-3 rounded-xl font-bold">Retry</button>' : ''}
+                        <button onclick="enterDemoMode()" class="bg-orange-600 text-white py-3 rounded-xl font-bold shadow-lg">Enter Demo Mode</button>
+                    </div>
                 </div>
             </div>`;
         }
-        
         function renderLanding(container) {
-            container.innerHTML = `
-                <div class="landing-screen p-6">
-                  <div class="landing-pattern"></div>
-                  <button type="button" class="settings-hit-area" aria-label="Admin Settings" title="Admin Settings" onclick="window.setView('admin')"></button>
-                  
-                  <div class="landing-top-actions">
-                    <!-- Visible gear (non-click) + invisible large hit area (click) for iOS reliability -->
-                    <div class="relative w-12 h-12">
-                      <div class="absolute inset-0 rounded-full bg-white/70 backdrop-blur-md border border-white/60 shadow-lg flex items-center justify-center text-gray-700 pointer-events-none">
-                        <i data-lucide="settings" class="w-5 h-5"></i>
-                      </div>
-                      <button type="button"
-                              aria-label="Settings"
-                              title="Settings"
-                              onclick="(function(e){ try{ e&&e.preventDefault&&e.preventDefault(); e&&e.stopPropagation&&e.stopPropagation(); }catch(_){} window.setView('admin'); })(event)"
-                              class="absolute -inset-2 opacity-0 z-50 cursor-pointer"></button>
+            let loginModal = '';
+            if (state.isAdminLoginOpen) {
+                loginModal = `
+                <div class=\"fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4\">
+                    <div class=\"bg-white w-full max-w-xs rounded-2xl shadow-2xl animate-slide-up p-6 text-center relative overflow-hidden\">
+                        <button onclick=\"closeAdminLogin()\" class=\"absolute top-4 right-4 text-gray-400 hover:text-gray-600\"><i data-lucide=\"x\" class=\"w-5 h-5\"></i></button>
+                        
+                        <div class=\"mb-6 mt-2\">
+                            <div class=\"w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3\">
+                                <i data-lucide=\"lock\" class=\"w-8 h-8 text-gray-600\"></i>
+                            </div>
+                            <h2 class=\"text-xl font-bold text-gray-800\">Admin Access</h2>
+                            <p class=\"text-xs text-gray-500\">Please enter your PIN to continue</p>
+                        </div>
+
+                        <form onsubmit=\"handleAdminLogin(event)\" class=\"space-y-4\">
+                            <div id=\"pinContainer\">
+                                <input type=\"password\" id=\"adminPinInput\" placeholder=\"••••\" maxlength=\"4\" class=\"w-full text-center text-3xl font-bold tracking-[1em] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all placeholder-gray-300\" autofocus>
+                            </div>
+                            
+                            ${state.adminLoginError ? `<p class=\"text-xs text-red-500 font-bold animate-pulse\">${state.adminLoginError}</p>` : ''}
+                            
+                            <button type=\"submit\" class=\"w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition shadow-lg\">
+                                Unlock
+                            </button>
+                        </form>
                     </div>
+                </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class=\"landing-screen p-6\">
+                  <div class=\"landing-pattern\"></div>
+
+                  <!-- Settings (Top Right) -->
+                  <div class=\"absolute top-4 right-4 z-50\">
+                    <button onclick=\"setView('admin')\" class=\"w-12 h-12 rounded-full bg-white/70 backdrop-blur-md shadow-lg border border-white/60 flex items-center justify-center\" title=\"Settings\">
+                      <i data-lucide=\"settings\" class=\"w-6 h-6 text-gray-800\"></i>
+                    </button>
                   </div>
 
-                  <div class="landing-logo flex-1 flex items-center justify-center w-full">
-                    <img src="oorumess.png" alt="Ooru Mess Logo" class="max-w-[80vw] max-h-[50vh] object-contain drop-shadow-2xl">
+                  <div class=\"landing-logo flex-1 flex items-center justify-center w-full\">
+                    <img src=\"oorumess.png\" alt=\"Ooru Mess Logo\" class=\"max-w-[88vw] max-h-[56vh] object-contain drop-shadow-2xl\">
                   </div>
 
-                  <div class="landing-actions w-full max-w-md space-y-4 mb-8">
-                    <button class="btn-3d btn-orange w-full py-4 text-white rounded-xl text-lg font-extrabold tracking-wide flex items-center justify-center gap-2" onclick="setView('customer')">
+                  <div class=\"landing-actions w-full max-w-md space-y-4 mb-8\">
+                    <button class=\"btn-3d btn-orange w-full py-4 text-white rounded-[999px] text-lg font-extrabold tracking-wide flex items-center justify-center gap-3\" onclick=\"setView('customer')\">
                         <span>Place Order</span>
-                        <i data-lucide="utensils" class="w-5 h-5"></i>
+                        <i data-lucide=\"utensils\" class=\"w-5 h-5\"></i>
                     </button>
-                    
-                    <button class="btn-3d btn-green w-full py-4 text-white rounded-xl text-lg font-bold tracking-wide flex items-center justify-center gap-2" onclick="setView('kitchen')">
+
+                    <button class=\"btn-3d btn-green w-full py-4 text-white rounded-[999px] text-lg font-bold tracking-wide flex items-center justify-center gap-3\" onclick=\"setView('kitchen')\">
                         <span>Kitchen View</span>
-                        <i data-lucide="chef-hat" class="w-5 h-5"></i>
+                        <i data-lucide=\"chef-hat\" class=\"w-5 h-5\"></i>
                     </button>
                   </div>
+
+                  ${state.isDemoMode ? '<div class=\"absolute top-6 left-6 bg-orange-900/80 text-white px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50 pointer-events-none z-50\">DEMO MODE</div>' : ''}
+                  ${loginModal}
                 </div>
             `;
+            
+            if (state.isAdminLoginOpen) {
+                setTimeout(() => document.getElementById('adminPinInput')?.focus(), 100);
+            }
         }
 
+
         function renderAdmin(container) {
-            // Reusing basic admin logic
             const categories = state.categories.sort((a,b) => a.order - b.order);
             const menuItems = state.menuItems;
 
             const groupedMenuHtml = categories.map(cat => {
                 const catItems = menuItems.filter(item => item.category === cat.name);
                 const isExpanded = state.adminExpandedCategories[cat.name];
+                
                 return `
-                    <div class="mb-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div onclick="toggleAdminCategory('${cat.name}')" class="p-4 flex justify-between items-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition select-none">
                             <h3 class="font-bold text-gray-800 flex items-center gap-2">
-                                <i data-lucide="chevron-${isExpanded ? 'down' : 'right'}" class="w-5 h-5 text-gray-400"></i>
+                                <i data-lucide="chevron-${isExpanded ? 'down' : 'right'}" class="w-5 h-5 transition-transform text-gray-400"></i>
                                 ${cat.name}
                             </h3>
                             <span class="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-bold">${catItems.length}</span>
                         </div>
                         <div class="${isExpanded ? 'block' : 'hidden'} p-4 border-t border-gray-100 bg-white">
                             <div class="space-y-2">
-                                ${catItems.map(item => `
-                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition">
-                                        <div><div class="font-bold text-gray-800 text-sm">${item.name}</div></div>
+                                ${catItems.length > 0 ? catItems.map(item => `
+                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition group">
+                                        <div>
+                                            <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                                            ${item.variant ? `<div class="text-xs text-gray-500">• ${item.variant}</div>` : ''}
+                                        </div>
                                         <div class="flex items-center gap-4">
                                             <span class="font-bold text-gray-900 text-sm">RM ${parseFloat(item.price).toFixed(2)}</span>
-                                            <button onclick="handleDeleteItem('${item.id}')" class="text-gray-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                            <button onclick="handleDeleteItem('${item.id}')" class="text-gray-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                         </div>
                                     </div>
-                                `).join('')}
+                                `).join('') : '<p class="text-xs text-gray-400 italic py-2 text-center">No items in this category.</p>'}
                             </div>
                         </div>
                     </div>
                 `;
             }).join('');
 
+            const uncategorized = menuItems.filter(item => !categories.some(c => c.name === item.category));
+            const uncategorizedHtml = uncategorized.length > 0 ? `
+                <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-red-100">
+                    <h3 class="font-bold text-red-800 mb-3 flex justify-between items-center border-b border-red-100 pb-2">
+                        Uncategorized
+                        <span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold">${uncategorized.length}</span>
+                    </h3>
+                    <div class="space-y-2">
+                        ${uncategorized.map(item => `
+                            <div class="flex justify-between items-center p-3 bg-red-50/50 rounded-lg">
+                                <div>
+                                    <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                                    <div class="text-xs text-gray-500 italic">Category: ${item.category} (Missing)</div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="font-bold text-gray-900 text-sm">RM ${parseFloat(item.price).toFixed(2)}</span>
+                                    <button onclick="handleDeleteItem('${item.id}')" class="text-red-400 hover:text-red-600 p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : '';
+
             container.innerHTML = `
                 <div class="min-h-screen bg-gray-50 pb-20">
-                    <div class="bg-slate-900 text-white p-4 sticky top-0 z-20 flex items-center gap-3 shadow-md">
-                        <button onclick="setView('landing')" class="p-1"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
-                        <h1 class="font-bold text-xl">Admin</h1>
+                    <div class="bg-slate-900 text-white p-4 sticky top-0 z-20 flex items-center justify-between shadow-md">
+                        <div class="flex items-center gap-3">
+                            <button onclick="setView('landing')" class="p-1 hover:bg-slate-700 rounded"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+                            <h1 class="font-bold text-xl">Admin Settings</h1>
+                        </div>
                     </div>
+
                     <div class="max-w-4xl mx-auto p-4 space-y-6">
-                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                             <h2 class="font-bold text-lg mb-4">Add Item</h2>
+                        
+                        <!-- Sales Dashboard Link Card -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                                    <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h2 class="font-bold text-lg text-gray-800">Sales Dashboard</h2>
+                                    <p class="text-xs text-gray-500">View analytics, revenue, and order trends</p>
+                                </div>
+                            </div>
+                            <a href="https://theva73.github.io/OoruMess/SalesDashboard.html" class="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex items-center justify-center gap-2 transition transform active:scale-95">
+                                Open Dashboard <i data-lucide="external-link" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-blue-600"></i> Manage Categories</h2>
+                            <form onsubmit="handleAddCategory(event)" class="flex gap-2">
+                                <input type="text" id="newCatName" placeholder="New Category Name (e.g. Desserts)" class="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" required>
+                                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">Add</button>
+                            </form>
+                            <div class="flex flex-wrap gap-2 mt-4">
+                                ${categories.map(c => `<span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">${c.name}</span>`).join('')}
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-5 h-5 text-green-600"></i> Add New Food Item</h2>
                             <form onsubmit="handleAddItem(event)" class="space-y-4">
-                                <input type="text" id="itemName" placeholder="Name" class="p-3 border rounded-xl w-full bg-gray-50" required>
-                                <div class="flex gap-2">
-                                    <input type="number" id="itemPrice" step="0.10" placeholder="RM 0.00" class="p-3 border rounded-xl w-1/3 bg-gray-50" required>
-                                    <select id="itemCategory" class="p-3 border rounded-xl w-2/3 bg-gray-50" required>
-                                        <option value="" disabled selected>Category</option>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <input type="text" id="itemName" placeholder="Food Name (e.g. Ice Cream)" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
+                                    <input type="text" id="itemVariant" placeholder="Variant (Optional - e.g. Vanilla)" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500">
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-3 text-gray-500">RM</span>
+                                        <input type="number" id="itemPrice" step="0.10" placeholder="0.00" class="p-3 pl-10 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
+                                    </div>
+                                    <select id="itemCategory" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
+                                        <option value="" disabled selected>Select Category</option>
                                         ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                                     </select>
                                 </div>
-                                <button type="submit" class="btn-3d btn-green w-full py-3 rounded-xl text-white font-bold">Add to Menu</button>
+                                <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-100">Add to Menu</button>
                             </form>
                         </div>
-                        <div>${groupedMenuHtml}</div>
+
+                        <div>
+                            <h2 class="font-bold text-xl mb-4 flex items-center gap-2"><i data-lucide="list" class="w-5 h-5 text-orange-600"></i> Current Menu</h2>
+                            ${groupedMenuHtml}
+                            ${uncategorizedHtml}
+                        </div>
+
                     </div>
                 </div>
             `;
         }
 
         function renderCustomer(container) {
-            if (!state.activeCategory && state.categories.length > 0) state.activeCategory = state.categories[0].name;
+            if (!state.activeCategory && state.categories.length > 0) {
+                state.activeCategory = state.categories[0].name;
+            }
 
             const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+            
             const visibleItems = state.menuItems.filter(item => item.category === state.activeCategory);
 
             const itemsHtml = visibleItems.map(item => {
                 const inCart = state.cart.find(c => c.id === item.id);
-                // Badge for items in cart
+                // NEW: Compact Button Layout Logic
                 const countBadge = inCart ? `<div class="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-md z-10 animate-bounce-short">${inCart.quantity}</div>` : '';
                 const activeClass = inCart ? 'ring-2 ring-orange-500 bg-orange-50' : 'bg-white hover:shadow-md';
 
@@ -984,7 +1119,7 @@
                         
                         <div class="mb-2">
                             <h3 class="font-bold text-gray-800 text-sm leading-tight line-clamp-2">${item.name}</h3>
-                            ${item.variant ? `<p class="text-[10px] text-gray-500 mt-0.5 font-medium uppercase tracking-wide truncate">${item.variant}</p>` : ''}
+                            ${item.variant ? `<p class="text-[10px] text-gray-500 mt-0.5 font-medium uppercase tracking-wide">${item.variant}</p>` : ''}
                         </div>
                         
                         <div class="flex justify-between items-end mt-auto">
@@ -1005,45 +1140,21 @@
                 </div>`;
             }).join('');
 
-            const tabsHtml = state.categories.sort((a,b) => a.order - b.order).map(cat => `
-                <button onclick="setCategory('${cat.name}')" 
-                    class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all transform active:scale-95 ${
-                        state.activeCategory === cat.name
-                        ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
-                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                    }">
-                    ${cat.name}
-                </button>
-            `).join('');
-
-            // --- CHANGED: Floating Cart Pill (Bottom Right) ---
-            let floatingCart = '';
-            if (cartCount > 0 && !state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
-                floatingCart = `
-                <div class="fixed bottom-6 right-6 z-40 animate-slide-up">
-                    <button onclick="toggleCheckout(true, 'cart')" class="group bg-orange-600 text-white pl-3 pr-5 py-3 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgba(234,88,12,0.3)] transition-all active:scale-95 flex items-center gap-3 border border-orange-500/50 backdrop-blur-sm">
-                        <div class="bg-white text-orange-600 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shadow-sm group-hover:scale-110 transition-transform">
-                            ${cartCount}
-                        </div>
-                        <div class="flex flex-col items-start">
-                            <span class="text-[10px] font-bold uppercase text-orange-100 leading-none mb-0.5">View Cart</span>
-                            <span class="font-black text-sm leading-none">RM ${cartTotal.toFixed(2)}</span>
-                        </div>
-                        <i data-lucide="chevron-up" class="w-4 h-4 text-orange-200"></i>
+            const tabsHtml = state.categories
+                .sort((a,b) => a.order - b.order)
+                .map(cat => `
+                    <button onclick="setCategory('${cat.name}')" 
+                        class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all transform active:scale-95 ${
+                            state.activeCategory === cat.name
+                            ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
+                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                        }">
+                        ${cat.name}
                     </button>
-                </div>`;
-            } else if (!state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
-                 floatingCart = `
-                <div class="fixed bottom-6 right-6 z-30 animate-slide-up">
-                    <button onclick="toggleCheckout(true, 'check_bill')" class="bg-white border border-gray-200 text-gray-600 p-3 rounded-full shadow-lg flex items-center gap-2 font-bold text-sm hover:bg-gray-50 transition">
-                        <i data-lucide="receipt" class="w-5 h-5"></i>
-                    </button>
-                </div>`;
-            }
+                `).join('');
 
             let modalHtml = '';
             if (state.isCheckoutOpen) {
-                // ... same cart logic ...
                 const cartItemsHtml = state.cart.map(item => `
                     <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg mb-2">
                         <div>
@@ -1061,7 +1172,7 @@
 
                 const grandTotal = cartTotal + state.tabTotal;
 
-                 modalHtml = `
+                modalHtml = `
                 <div class="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm p-0 sm:p-4">
                     <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
                         <div class="p-4 border-b flex justify-between items-center bg-orange-50 sm:rounded-t-2xl">
@@ -1074,14 +1185,42 @@
                             <div class="mt-4 pt-4 border-t border-dashed border-gray-300">
                                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Table Number <span class="text-red-500">*</span></label>
                                 <input id="tableNumberInput" type="number" oninput="setTableNumber(this.value)" value="${state.tableNumber}" placeholder="e.g. 5" class="w-full p-3 border rounded-xl text-center text-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 placeholder-gray-300">
+                                <p class="text-xs text-center text-gray-400 mt-2">Enter number to check bill or place order</p>
                             </div>
-                            
+
                             ${(() => {
                                 if (state.checkoutMode !== 'check_bill') return '';
                                 const tabs = getAllPendingTabs();
                                 if (!tabs.length) return '';
-                                const rows = tabs.map(t => `<button onclick="selectPendingTable('${t.table}')" class="w-full flex items-center justify-between p-3 rounded-xl border mb-2 text-left bg-white border-gray-200 hover:bg-gray-50"><div><div class="font-bold text-gray-900">Table ${t.table}</div><div class="text-xs text-gray-500">${t.count} pending bills</div></div><div class="font-bold text-gray-900">RM ${t.total.toFixed(2)}</div></button>`).join('');
-                                return `<div class="mt-4"><div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Pending Bills</div><div class="space-y-2">${rows}</div></div>`;
+                                const totalAll = tabs.reduce((s, t) => s + t.total, 0);
+
+                                const rows = tabs.map(t => {
+                                    const isActive = state.tableNumber && String(state.tableNumber) === String(t.table);
+                                    return `
+                                        <button onclick="selectPendingTable('${t.table}')"
+                                            class="w-full flex items-center justify-between p-3 rounded-xl border text-left transition ${isActive ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200 hover:bg-gray-50'}">
+                                            <div>
+                                                <div class="font-bold text-gray-900">Table ${t.table}</div>
+                                                <div class="text-xs text-gray-500">${t.count} pending bill${t.count > 1 ? 's' : ''}</div>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="font-bold text-gray-900">RM ${t.total.toFixed(2)}</div>
+                                                <div class="text-[11px] font-semibold text-orange-600">Tap to view</div>
+                                            </div>
+                                        </button>
+                                    `;
+                                }).join('');
+
+                                return `
+                                    <div class="mt-4">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Pending Bills</div>
+                                            <div class="text-xs font-bold text-gray-700">RM ${totalAll.toFixed(2)}</div>
+                                        </div>
+                                        <div class="space-y-2">${rows}</div>
+                                        <p class="text-[11px] text-gray-400 text-center mt-2">Select a table to view and settle its bill.</p>
+                                    </div>
+                                `;
                             })()}
 
                             <div id="tabInfoContainer" class="hidden"></div>
@@ -1096,18 +1235,82 @@
                 </div>`;
             }
 
-            // Same Confirmation & Payment Modals...
             let confirmationModalHtml = '';
-             if(state.isConfirmationOpen) {
-                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                 const grandTotal = cartTotal + state.tabTotal;
-                 confirmationModalHtml = `
+            if(state.isConfirmationOpen) {
+                const cartItemsSummary = state.cart.map(item => `
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                        <div class="flex items-center gap-3">
+                            <span class="bg-gray-100 text-gray-700 font-bold w-6 h-6 flex items-center justify-center rounded-full text-xs">${item.quantity}x</span>
+                            <span class="text-sm font-medium text-gray-800">${item.name}</span>
+                        </div>
+                        <span class="text-sm font-bold text-gray-900">RM ${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                `).join('');
+
+                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const grandTotal = cartTotal + state.tabTotal;
+
+                // ADDED: Tab Items in Confirmation
+                let tabSummaryHtml = '';
+                if (state.tabTotal > 0) {
+                    const openOrders = state.orders.filter(o => 
+                        o.tableNumber === state.tableNumber && 
+                        o.paymentStatus === 'pay_later' &&
+                        o.status !== 'cancelled'
+                    );
+                    
+                    const aggregated = {};
+                    openOrders.forEach(o => {
+                        if (o.items) {
+                            o.items.forEach(i => {
+                                const k = i.name + (i.variant || '');
+                                if(!aggregated[k]) aggregated[k] = { ...i, quantity: 0, total: 0 };
+                                aggregated[k].quantity += i.quantity;
+                                aggregated[k].total += (i.price * i.quantity);
+                            });
+                        }
+                    });
+
+                    tabSummaryHtml += `<div class="mb-2 pt-2 border-t border-gray-200 mt-2"><h3 class="font-bold text-blue-600 text-xs uppercase mb-2">Previous Unpaid Items</h3>`;
+                    tabSummaryHtml += Object.values(aggregated).map(i => `
+                        <div class="flex justify-between items-center py-1 text-gray-500">
+                            <div class="flex items-center gap-3">
+                                <span class="bg-blue-50 text-blue-700 font-bold w-5 h-5 flex items-center justify-center rounded-full text-[10px]">${i.quantity}x</span>
+                                <span class="text-xs font-medium">${i.name}</span>
+                            </div>
+                            <span class="text-xs font-bold">RM ${i.total.toFixed(2)}</span>
+                        </div>
+                    `).join('');
+                    tabSummaryHtml += `</div>`;
+                }
+
+                confirmationModalHtml = `
                 <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4">
                     <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl animate-slide-up p-6">
-                        <h2 class="text-xl font-bold text-center mb-6">Confirm Order</h2>
+                        <div class="text-center mb-6">
+                            <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i data-lucide="check-circle-2" class="w-6 h-6 text-orange-600"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-gray-900">Review Bill</h2>
+                            <p class="text-xs text-gray-500">Table ${state.tableNumber}</p>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-xl p-4 mb-6 max-h-80 overflow-y-auto">
+                            ${state.cart.length > 0 ? `<h3 class="font-bold text-orange-600 text-xs uppercase mb-2">Current Order</h3>${cartItemsSummary}` : ''}
+                            ${tabSummaryHtml}
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t-2 border-dashed border-gray-300">
+                                <span class="font-bold text-gray-800 text-lg">Total Due</span>
+                                <span class="font-bold text-xl text-green-600">RM ${grandTotal.toFixed(2)}</span>
+                            </div>
+                        </div>
+
                         <div class="space-y-3">
-                            <button onclick="proceedToPaymentSelection()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transition">Confirm & Pay</button>
-                            <button onclick="toggleConfirmation(false)" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">Back to Edit</button>
+                            <button onclick="proceedToPaymentSelection()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transition flex items-center justify-center gap-2">
+                                Confirm & Pay
+                            </button>
+                            <button onclick="toggleConfirmation(false)" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
+                                Back to Edit
+                            </button>
                         </div>
                     </div>
                 </div>`;
@@ -1115,10 +1318,11 @@
 
             let paymentModalHtml = '';
             if(state.isPaymentOpen) {
-                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                 const grandTotal = cartTotal + state.tabTotal;
-                 const isTabActive = state.tabTotal > 0;
-                 if (state.paymentStep === 'selection') {
+                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const grandTotal = cartTotal + state.tabTotal;
+                const isTabActive = state.tabTotal > 0;
+
+                if (state.paymentStep === 'selection') {
                     paymentModalHtml = `
                     <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4">
                         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl animate-slide-up p-6 text-center">
@@ -1126,50 +1330,122 @@
                                 <h2 class="text-xl font-bold text-gray-900">Choose Payment</h2>
                                 <button onclick="togglePayment(false)" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-6 h-6"></i></button>
                             </div>
+                            
                             <div class="space-y-4">
+                                <!-- Pay Later / Add to Tab -->
                                 <div class="border rounded-xl p-4 hover:border-blue-500 transition cursor-pointer group bg-blue-50 border-blue-100" onclick="confirmPayment('pay_later')">
-                                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3"><i data-lucide="clock" class="w-6 h-6 text-blue-600"></i></div>
-                                    <h3 class="font-bold text-gray-800">Pay Later (Tab)</h3>
+                                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition">
+                                        <i data-lucide="clock" class="w-6 h-6 text-blue-600"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800">Pay Later (Add to Tab)</h3>
+                                    <p class="text-xs text-gray-500">Send to kitchen & pay total later</p>
                                 </div>
+
+                                <div class="relative flex py-2 items-center">
+                                    <div class="flex-grow border-t border-gray-200"></div>
+                                    <span class="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase font-bold">OR Settle Now</span>
+                                    <div class="flex-grow border-t border-gray-200"></div>
+                                </div>
+
+                                <!-- Option 1: QR -->
                                 <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="showLargeQR()">
-                                    <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3"><i data-lucide="qr-code" class="w-6 h-6 text-orange-600"></i></div>
-                                    <h3 class="font-bold text-gray-800">Scan QR</h3>
+                                    <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition">
+                                        <i data-lucide="qr-code" class="w-6 h-6 text-orange-600"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800">Scan QR / DuitNow</h3>
+                                    <div class="mt-2 bg-gray-50 p-2 rounded border border-dashed border-gray-300">
+                                        <div class="mx-auto w-16 h-16 bg-white flex items-center justify-center border overflow-hidden p-1">
+                                            <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="QR Code">
+                                        </div>
+                                        <p class="text-[10px] text-gray-400 mt-1 font-bold">Pay RM ${grandTotal.toFixed(2)}</p>
+                                    </div>
                                 </div>
+
+                                <!-- Option 2: Cash -->
                                 <div class="border rounded-xl p-4 hover:border-green-500 transition cursor-pointer group" onclick="${isTabActive ? `confirmPayment('settle_tab_cash')` : `confirmPayment('cash')`}">
-                                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3"><i data-lucide="banknote" class="w-6 h-6 text-green-600"></i></div>
-                                    <h3 class="font-bold text-gray-800">Cash</h3>
+                                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200 transition">
+                                        <i data-lucide="banknote" class="w-6 h-6 text-green-600"></i>
+                                    </div>
+                                    <h3 class="font-bold text-gray-800">Cash at Counter</h3>
+                                    <p class="text-xs text-gray-500">Settle Full Bill: RM ${grandTotal.toFixed(2)}</p>
                                 </div>
                             </div>
                         </div>
-                    </div>`;
-                 } else if (state.paymentStep === 'qr_fullscreen') {
+                    </div>
+                    `;
+                } else if (state.paymentStep === 'qr_fullscreen') {
                     paymentModalHtml = `
                     <div class="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center backdrop-blur-md p-4">
                         <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-slide-up overflow-hidden relative">
-                             <div class="bg-orange-600 p-6 text-white text-center">
-                                <h2 class="text-2xl font-bold mb-1">Scan to Pay</h2>
-                                <p class="text-3xl font-bold">RM ${grandTotal.toFixed(2)}</p>
+                            <div class="bg-orange-600 p-6 text-white text-center relative overflow-hidden">
+                                <div class="absolute inset-0 bg-orange-700 opacity-20 transform -skew-y-12 scale-150"></div>
+                                <h2 class="text-2xl font-bold relative z-10 mb-1">Scan to Pay</h2>
+                                <p class="text-orange-100 text-sm relative z-10">Total Amount</p>
+                                <p class="text-3xl font-bold relative z-10">RM ${grandTotal.toFixed(2)}</p>
                             </div>
+                            
                             <div class="p-8 flex flex-col items-center">
-                                <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-64 h-64 object-contain border-4 border-orange-100 rounded-xl mb-6">
-                                <button onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `confirmPayment('qr')`}" class="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg">I have Paid</button>
-                                <button onclick="backToSelection()" class="w-full mt-3 text-gray-500 font-bold">Back</button>
+                                <div class="w-64 h-64 bg-white p-2 rounded-xl shadow-lg border-2 border-orange-100 mb-6 relative group">
+                                    <div class="absolute -inset-1 rounded-2xl border-2 border-dashed border-orange-300 animate-pulse"></div>
+                                    <div class="w-full h-full bg-white flex items-center justify-center relative z-10 p-4">
+                                        <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="DuitNow QR">
+                                    </div>
+                                </div>
+                                
+                                <p class="text-sm text-gray-500 text-center mb-6 max-w-[200px]">Open your banking app or e-wallet to scan this DuitNow QR code.</p>
+                                
+                                <div class="w-full space-y-3">
+                                    <button onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `confirmPayment('qr')`}" class="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transform active:scale-95 transition flex items-center justify-center gap-2">
+                                        <i data-lucide="check-circle" class="w-5 h-5"></i>
+                                        I have Paid
+                                    </button>
+                                    <button onclick="backToSelection()" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
+                                        Back
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>`;
-                 }
+                    </div>
+                    `;
+                }
             }
 
+            let floatingCart = '';
+            if (cartCount > 0 && !state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
+                floatingCart = `
+                <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+                    <div class="max-w-4xl mx-auto flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">${cartCount} Items</p>
+                            <p class="text-xl font-bold text-gray-900">Total: RM ${cartTotal.toFixed(2)}</p>
+                        </div>
+                        <button onclick="toggleCheckout(true, 'cart')" class="bg-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-700 transition transform active:scale-95">View Cart</button>
+                    </div>
+                </div>`;
+            } else if (!state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
+                 floatingCart = `
+                <div class="fixed bottom-4 right-4 z-30">
+                    <button onclick="toggleCheckout(true, 'check_bill')" class="bg-white border border-gray-200 text-gray-600 p-3 rounded-full shadow-lg flex items-center gap-2 font-bold text-sm hover:bg-gray-50 transition">
+                        <i data-lucide="receipt" class="w-5 h-5"></i> Check Bill
+                    </button>
+                </div>`;
+            }
 
             container.innerHTML = `
                 <div class="pb-28">
                     <div class="bg-white sticky top-0 z-20 px-4 py-3 shadow-sm flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <button onclick="setView('landing')" class="text-gray-500 hover:text-black p-1 rounded hover:bg-gray-100"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                            <div><h1 class="font-bold text-lg leading-tight">Ooru Mess</h1><p class="text-xs text-gray-500">Digital Menu</p></div>
+                            <div>
+                                <h1 class="font-bold text-lg leading-tight">Ooru Mess</h1>
+                                <p class="text-xs text-gray-500">Digital Menu</p>
+                            </div>
                         </div>
                         <div class="flex items-center gap-2">
                              ${state.isDemoMode ? '<span class="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">DEMO</span>' : ''}
+                             <div class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200">
+                                <div class="w-2 h-2 ${state.isDemoMode ? 'bg-orange-500' : 'bg-green-500 animate-pulse'} rounded-full"></div> OPEN
+                            </div>
                         </div>
                     </div>
 
@@ -1194,29 +1470,78 @@
                 if (!timestamp) return false;
                 const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
                 const today = new Date();
-                return date.getDate() === today.getDate() && date.getMonth() === today.getMonth();
+                return date.getDate() === today.getDate() &&
+                       date.getMonth() === today.getMonth() &&
+                       date.getFullYear() === today.getFullYear();
             };
+
             const todaysOrders = state.orders.filter(o => isToday(o.timestamp));
+
             const pendingOrders = todaysOrders.filter(o => o.status === 'pending');
             const cookingOrders = todaysOrders.filter(o => o.status === 'cooking');
             const readyOrders = todaysOrders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5);
 
             const renderCard = (order, type) => {
                 const timeStr = order.timestamp && order.timestamp.toDate ? order.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Now';
+                
                 let actions = '';
                 if (type === 'pending') {
-                    actions = `<div class="flex gap-2 mt-3"><button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button><button onclick="updateOrderStatus('${order.id}', 'cooking')" class="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm shadow">Prepare</button></div>`;
+                    actions = `
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Cancel Order"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        <button onclick="updateOrderStatus('${order.id}', 'cooking')" class="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 flex items-center justify-center gap-2 transition shadow"><i data-lucide="flame" class="w-4 h-4"></i> Preparing</button>
+                    </div>`;
                 } else if (type === 'cooking') {
-                    actions = `<div class="flex gap-2 mt-3"><button onclick="updateOrderStatus('${order.id}', 'ready')" class="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-sm shadow">Ready</button></div>`;
+                    actions = `
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Cancel Order"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        <button onclick="updateOrderStatus('${order.id}', 'ready')" class="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2 transition shadow"><i data-lucide="check-circle" class="w-4 h-4"></i> Mark Ready</button>
+                    </div>`;
+                } else if (type === 'ready' && order.status !== 'served') {
+                    actions = `<button onclick="updateOrderStatus('${order.id}', 'served')" class="w-full mt-3 bg-gray-700 text-white py-2 rounded-lg font-bold text-sm hover:bg-gray-800 transition">Mark Served</button>`;
                 }
+
+                let displayStatus = order.status;
+                if (order.status === 'cooking') displayStatus = 'PREPARING';
+                
+                const isPaid = order.paymentStatus === 'paid';
+                let paymentBadge = '';
+                
+                if (order.paymentStatus === 'pay_later') {
+                    paymentBadge = `<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-200 font-bold ml-1">TAB</span>`;
+                } else if (isPaid) {
+                    paymentBadge = `<span class="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-200 font-bold ml-1">PAID</span>`;
+                } else {
+                    paymentBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 font-bold ml-1">CASH</span>`;
+                }
+
 
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${type==='pending'?'border-blue-500':type==='cooking'?'border-orange-500':'border-green-500'} mb-4 animate-slide-up">
                     <div class="flex justify-between items-start mb-2 border-b pb-2">
-                        <div><span class="text-xs font-bold text-gray-500 uppercase tracking-wide">Table</span><div class="text-3xl font-black text-gray-800 leading-none">${order.tableNumber}</div></div>
-                        <div class="text-right"><span class="text-xs font-medium text-gray-400">${timeStr}</span></div>
+                        <div>
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">Table</span>
+                            <div class="flex items-center gap-2">
+                                <div class="text-3xl font-black text-gray-800 leading-none">${order.tableNumber}</div>
+                                ${paymentBadge}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-medium text-gray-400 flex items-center justify-end gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${timeStr}</span>
+                            <span class="text-xs font-bold uppercase px-2 py-0.5 rounded text-white mt-1 inline-block ${type==='pending'?'bg-blue-500':type==='cooking'?'bg-orange-500':'bg-green-500'}">${displayStatus}</span>
+                        </div>
                     </div>
-                    <div class="space-y-1">${order.items.map(i => `<div class="flex gap-2 text-sm"><span class="font-bold bg-gray-100 px-1.5 rounded h-fit text-gray-700">${i.quantity}x</span><span>${i.name}</span></div>`).join('')}</div>
+                    <div class="space-y-1">
+                        ${order.items.map(i => `
+                            <div class="flex gap-2 text-sm">
+                                <span class="font-bold bg-gray-100 px-1.5 rounded h-fit text-gray-700">${i.quantity}x</span>
+                                <div>
+                                    <span class="font-medium text-gray-800">${i.name}</span>
+                                    ${i.variant ? `<span class="text-xs text-gray-500 block">${i.variant}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
                     ${actions}
                 </div>`;
             };
@@ -1224,13 +1549,44 @@
             container.innerHTML = `
                 <div class="h-dvh bg-slate-100 flex flex-col">
                     <div class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md">
-                        <div class="flex items-center gap-4"><button onclick="setView('landing')" class="text-slate-400 hover:text-white"><i data-lucide="arrow-left" class="w-6 h-6"></i></button><h1 class="text-xl font-bold">KDS</h1></div>
+                        <div class="flex items-center gap-4">
+                            <button onclick="setView('landing')" class="text-slate-400 hover:text-white transition"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+                            <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="chef-hat" class="text-orange-500"></i> KDS</h1>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full ${state.isDemoMode ? 'bg-orange-500' : 'bg-green-500 pulse-status'}"></span>
+                            <span class="text-xs font-mono text-slate-400 font-bold">${state.isDemoMode ? 'DEMO' : 'LIVE'}</span>
+                        </div>
                     </div>
+                    
                     <div id="kds-container" class="flex-1 overflow-x-auto p-4">
                         <div class="flex gap-4 min-w-[1000px]">
-                            <div class="flex-1 min-w-[320px]"><h2 class="font-bold text-slate-700 uppercase mb-4 bg-slate-200/50 p-2 rounded-lg">Pending (${pendingOrders.length})</h2>${pendingOrders.map(o => renderCard(o, 'pending')).join('')}</div>
-                            <div class="flex-1 min-w-[320px]"><h2 class="font-bold text-slate-700 uppercase mb-4 bg-slate-200/50 p-2 rounded-lg">Preparing (${cookingOrders.length})</h2>${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}</div>
-                            <div class="flex-1 min-w-[320px]"><h2 class="font-bold text-slate-700 uppercase mb-4 bg-slate-200/50 p-2 rounded-lg">Ready (${readyOrders.length})</h2>${readyOrders.map(o => renderCard(o, 'ready')).join('')}</div>
+                            <!-- Pending -->
+                            <div class="flex-1 min-w-[320px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
+                                    <span>Pending</span> 
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold">${pendingOrders.length}</span>
+                                </h2>
+                                ${pendingOrders.map(o => renderCard(o, 'pending')).join('') || '<div class="text-center text-slate-400 italic py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">No pending orders</div>'}
+                            </div>
+                            
+                            <!-- Preparing -->
+                            <div class="flex-1 min-w-[320px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
+                                    <span>Preparing</span> 
+                                    <span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs font-bold">${cookingOrders.length}</span>
+                                </h2>
+                                ${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}
+                            </div>
+
+                            <!-- Done -->
+                            <div class="flex-1 min-w-[320px]">
+                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
+                                    <span>Ready / Served</span> 
+                                    <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-bold">${readyOrders.length}</span>
+                                </h2>
+                                ${readyOrders.map(o => renderCard(o, 'ready')).join('')}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1241,4 +1597,5 @@
     </script>
 </body>
 </html>
+
 
