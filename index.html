@@ -117,6 +117,12 @@ html, body {
   inset: 0;
   overflow: hidden;
   background: #f6f1e6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .landing-bg{
@@ -136,22 +142,52 @@ html, body {
 .landing-logo-wrap{
   position: relative;
   z-index: 1;
-  height: 100%;
   width: 100%;
+  flex: 1;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: calc(clamp(48px, 10vh, 120px) + env(safe-area-inset-top));
+  padding-top: clamp(24px, 7vh, 90px);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
 
 .landing-logo-wrap img{
-  max-width: min(92vw, 720px);
-  max-height: 60vh;
+  max-width: min(96vw, 980px);
+  max-height: 75vh;
   object-fit: contain;
   display: block;
 }
+
+/* Landing actions */
+.landing-actions{
+  position: relative;
+  z-index: 2;
+  width: min(560px, 92vw);
+  display: grid;
+  gap: 14px;
+  padding: 0 0 18px;
+  margin-bottom: 18px;
+}
+.landing-btn{
+  width: 100%;
+  border: none;
+  border-radius: 18px;
+  padding: 16px 18px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.14);
+}
+.landing-btn.primary{ background:#e57a2d; color:#fff; }
+.landing-btn.secondary{ background:#3d6b44; color:#fff; }
+.landing-btn:active{ transform: translateY(1px); }
+
+@media (orientation: landscape) and (max-height: 520px){
+  .landing-actions{ width: min(680px, 84vw); grid-template-columns: 1fr 1fr; }
+  .landing-btn{ font-size: 17px; padding: 14px 16px; border-radius: 16px; }
+}
+
 /* ===== End Fullscreen Landing ===== */
 
 </style>
@@ -870,16 +906,27 @@ html, body {
 
         
         
+        
         function renderLanding(container) {
             container.innerHTML = `
                 <div class="landing-screen">
                   <div class="landing-bg"></div>
-                  <div class="landing-logo-wrap" onclick="setView('customer')">
+
+                  <!-- Admin hotspot (top-right) -->
+                  <button class="landing-admin-hotspot" onclick="setView('admin')" title="Admin Settings"></button>
+
+                  <div class="landing-logo-wrap">
                     <img src="oorumess.png" alt="Ooru Mess Logo">
+                  </div>
+
+                  <div class="landing-actions">
+                    <button class="landing-btn primary" onclick="setView('customer')">Place Order</button>
+                    <button class="landing-btn secondary" onclick="setView('kitchen')">Kitchen View</button>
                   </div>
                 </div>
             `;
         }
+
 
 
 
