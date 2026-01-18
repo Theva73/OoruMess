@@ -206,7 +206,18 @@
     }
 }
 
-</style>
+
+
+        /* Ensure gear is always clickable (above all layers) */
+        .landing-top-actions{
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + 14px);
+            right: calc(env(safe-area-inset-right, 0px) + 14px);
+            z-index: 9999;
+            pointer-events: auto;
+        }
+        .landing-top-actions button{ pointer-events: auto; }
+        </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
@@ -827,7 +838,7 @@
                 <div class="landing-screen p-6">
                   <div class="landing-pattern"></div>
                   
-                  <div class="absolute top-4 right-4 z-20">
+                  <div class="landing-top-actions">
                     <button onclick="setView('admin')"
                             aria-label="Settings"
                             title="Settings"
