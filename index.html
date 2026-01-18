@@ -16,357 +16,119 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Poppins', sans-serif; touch-action: manipulation; }
+        body { font-family: 'Poppins', sans-serif; touch-action: manipulation; background-color: #f8fafc; }
+        
+        /* --- SLIM TACTILE 3D BUTTONS --- */
+        
+        .btn-3d {
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            user-select: none;
+            transform: translateY(0);
+        }
+        
+        .btn-3d:active:not(:disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 transparent !important;
+        }
+
+        /* 1. Primary Orange Action (Slimmer Profile) */
+        .btn-orange {
+            background: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            box-shadow: 0 3px 0 #c2410c; /* Slim shadow */
+            border-radius: 12px;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+        
+        /* 2. Secondary Green Action */
+        .btn-green {
+            background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 3px 0 #047857;
+            border-radius: 12px;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        /* 3. Category Tabs (Slim Pill) */
+        .btn-tab {
+            background: white;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 0 #cbd5e1;
+            border-radius: 999px;
+        }
+        .btn-tab.active {
+            background: #ea580c;
+            color: white;
+            border-color: #ea580c;
+            box-shadow: 0 2px 0 #9a3412;
+        }
+
+        /* 4. Item Card "ADD" Button (Restored Position) */
+        .btn-add-item {
+            background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+            color: #ea580c;
+            border: 1px solid #fed7aa;
+            box-shadow: 0 2px 0 #fdba74;
+            border-radius: 8px;
+        }
+        .btn-add-item:active {
+            background: #fff7ed;
+            box-shadow: none !important;
+            border-color: #fdba74;
+        }
+
+        /* 5. Quantity Controls (+/-) */
+        .btn-qty {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 0 #cbd5e1;
+        }
+
+        /* --- END NEW STYLES --- */
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .h-dvh { height: 100vh; height: 100dvh; }
         
         @keyframes slideUp {
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
         .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
-        
-        @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
-        }
-        .pulse-status { animation: pulse-green 2s infinite; }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
 
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* Custom utility for dynamic viewport height */
-        .h-dvh { height: 100vh; height: 100dvh; }
-        
-        /* Compact Item Button Styles */
-        .item-btn {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .item-btn:active {
-            transform: scale(0.96);
-        }
-    
-        /* ===== Logo-only Landing (no stretch, portrait + landscape) ===== */
-        .landing-logo-page{
-            min-height: 100vh;
-            min-height: 100dvh;
-            width: 100%;
-            background: #f6f1e6; /* pearl/off-white */
+        /* Landing Background */
+        .landing-screen {
+            position: fixed;
+            inset: 0;
+            background: #fff7ed;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 24px;
-            padding-top: calc(24px + env(safe-area-inset-top));
-            padding-bottom: calc(24px + env(safe-area-inset-bottom));
-            position: relative;
-            overflow: hidden;
+            justify-content: flex-start;
         }
-        .landing-logo-img{
-            width: min(920px, 92vw);
-            height: auto;
-            max-height: 88dvh;
-            max-height: 88vh;
-            object-fit: contain; /* KEY: no stretching */
-            display: block;
-            user-select: none;
-            -webkit-user-drag: none;
-        }
-        .landing-logo-img{ animation: landingFade .55s ease-out; }
-        @keyframes landingFade{
-            from { opacity: 0; transform: scale(0.985); }
-            to   { opacity: 1; transform: scale(1); }
-        }
-        .landing-tap-layer{
+        .landing-pattern {
             position: absolute;
             inset: 0;
-            background: transparent;
-            cursor: pointer;
-            z-index: 2;
+            background-image: radial-gradient(#fdba74 1px, transparent 1px);
+            background-size: 24px 24px;
+            opacity: 0.2;
+            pointer-events: none;
         }
-        .landing-admin-hotspot{
-            position: absolute;
-            top: calc(10px + env(safe-area-inset-top));
-            right: 10px;
-            width: 56px;
-            height: 56px;
-            border-radius: 999px;
-            background: transparent; /* invisible hotspot */
-            z-index: 5;
-        }
-        /* ===== End Logo-only Landing ===== */
-
-    
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-
-/* ===== Fullscreen Premium Landing Background ===== */
-.landing-screen{
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  background: #f6f1e6;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.landing-bg{
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(
-      circle at center,
-      #ffffff 0%,
-      #f3eadb 45%,
-      #efe3cf 70%,
-      #ead9bf 100%
-    );
-  z-index: 0;
-}
-
-.landing-logo-wrap{
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: clamp(24px, 7vh, 90px);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-}
-
-.landing-logo-wrap img{
-  max-width: min(96vw, 980px);
-  max-height: 75vh;
-  object-fit: contain;
-  display: block;
-}
-
-/* Landing actions */
-.landing-actions{
-  position: relative;
-  z-index: 2;
-  width: min(560px, 92vw);
-  display: grid;
-  gap: 14px;
-  padding: 0 0 18px;
-  margin-bottom: 18px;
-}
-
-/* Premium glass buttons + tap animation */
-.landing-btn{
-  position: relative;
-  width: 100%;
-  border: 1px solid rgba(255,255,255,.28);
-  border-radius: 18px;
-  padding: 16px 18px;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: .2px;
-  color: #fff;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  background: rgba(255,255,255,.14);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  box-shadow:
-    0 14px 32px rgba(0,0,0,.18),
-    inset 0 1px 0 rgba(255,255,255,.25);
-  transition:
-    transform 140ms ease,
-    box-shadow 180ms ease,
-    filter 180ms ease;
-  overflow: hidden;
-}
-
-.landing-btn::before{
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: .92;
-  z-index: 0;
-}
-
-.landing-btn::after{
-  content: "";
-  position: absolute;
-  inset: -40% -10% auto -10%;
-  height: 120%;
-  transform: rotate(12deg);
-  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.35), transparent 60%);
-  opacity: .55;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.landing-btn > *{ position: relative; z-index: 1; }
-
-.landing-btn.primary::before{
-  background: linear-gradient(135deg, rgba(229,122,45,.95), rgba(229,122,45,.70));
-}
-
-.landing-btn.secondary::before{
-  background: linear-gradient(135deg, rgba(61,107,68,.95), rgba(61,107,68,.72));
-}
-
-.landing-btn:hover{
-  filter: saturate(1.04) brightness(1.02);
-  box-shadow:
-    0 16px 36px rgba(0,0,0,.22),
-    inset 0 1px 0 rgba(255,255,255,.28);
-}
-
-.landing-btn:active{
-  transform: translateY(1px) scale(.985);
-  filter: saturate(1.06) brightness(1.03);
-  box-shadow:
-    0 10px 24px rgba(0,0,0,.20),
-    inset 0 1px 0 rgba(255,255,255,.22);
-}
-
-.landing-btn:focus-visible{
-  outline: 3px solid rgba(255,255,255,.55);
-  outline-offset: 3px;
-}
-
-/* ===== End Fullscreen Landing ===== */
-
-
-
-/* ===== Landing Landscape Layout (stacked buttons) ===== */
-@media (orientation: landscape) and (max-height: 520px){
-  .landing-screen{
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 28px;
-    padding-left: max(14px, env(safe-area-inset-left));
-    padding-right: max(14px, env(safe-area-inset-right));
-  }
-
-  .landing-logo-wrap{
-    flex: 1.2;
-    align-items: center;
-    justify-content: center;
-    padding-top: 0;
-  }
-
-  .landing-logo-wrap img{
-    max-width: min(56vw, 780px);
-    max-height: 82vh;
-  }
-
-  .landing-actions{
-    flex: 0.8;
-    display: flex;
-    flex-direction: column;   /* STACK VERTICALLY */
-    align-items: stretch;
-    width: min(340px, 30vw);
-    gap: 14px;
-    margin-right: clamp(16px, 6vw, 130px); /* bring button group further left */
-  }
-
-  .landing-btn{
-    padding: 14px 18px;
-    font-size: 18px;
-    border-radius: 16px;
-  }
-}
-/* ===== End Landing Landscape Layout ===== */
-
-
-
-/* --- FIX: Ensure button labels are always visible --- */
-.glass-btn {
-  color: #ffffff !important;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-  position: relative;
-  z-index: 2;
-}
-
-.glass-btn span {
-  position: relative;
-  z-index: 3;
-}
-
-/* Remove any mask/overlay hiding text */
-.glass-btn::before,
-.glass-btn::after {
-  pointer-events: none;
-  z-index: 1;
-}
-
-
-/* ===== FIX: Button labels visible + no wrap (portrait & landscape) ===== */
-.landing-btn,
-.glass-btn{
-  color: #fff !important;
-  opacity: 1 !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,.28);
-  -webkit-text-fill-color: #fff !important; /* iOS/Safari safety */
-  white-space: nowrap; /* prevent wrapping */
-}
-
-.landing-btn *,
-.glass-btn *{
-  color: #fff !important;
-  opacity: 1 !important;
-  -webkit-text-fill-color: #fff !important;
-  position: relative;
-  z-index: 3; /* keep text above glass overlays */
-}
-
-.landing-btn::before,
-.landing-btn::after,
-.glass-btn::before,
-.glass-btn::after{
-  z-index: 1 !important; /* overlays behind text */
-  opacity: .55;          /* keep premium sheen but not washing text */
-}
-
-/* Extra contrast for very light glass */
-.landing-btn,
-.glass-btn{
-  font-weight: 700;
-  letter-spacing: .2px;
-}
-
-/* Landscape: make buttons longer so text never wraps */
-@media (orientation: landscape) and (max-height: 520px){
-  .landing-actions{
-    width: min(460px, 36vw) !important; /* wider column */
-    margin-right: clamp(6px, 2vw, 18px) !important;
-  }
-  .landing-btn,
-  .glass-btn{
-    min-height: 56px;
-    padding: 14px 18px !important;
-  }
-}
-/* ===== END FIX ===== */
-
-</style>
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-slate-50 text-slate-800">
 
     <div id="app"></div>
 
@@ -513,8 +275,6 @@ html, body {
 
             onSnapshot(query(collection(db, basePath, "categories"), orderBy("order")), (snap) => {
                 const rawCategories = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                
-                // DEDUPLICATE CATEGORIES BY NAME
                 const uniqueCategories = [];
                 const seenNames = new Set();
                 rawCategories.forEach(cat => {
@@ -540,13 +300,9 @@ html, body {
                 render();
             });
 
-            // Listen for orders to update Kitchen View AND to calculate Tabs
             onSnapshot(query(collection(db, basePath, "orders"), orderBy("timestamp", "desc")), (snap) => {
                 state.orders = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                // Only render if kitchen view to avoid input disruption in customer view
                 if (state.view === 'kitchen') render();
-                
-                // PROACTIVE UPDATE: If checkout is open and table number is set, update tab info
                 if (state.isCheckoutOpen && state.tableNumber) {
                      setTableNumber(state.tableNumber);
                 }
@@ -604,12 +360,8 @@ html, body {
                 state.view = 'admin';
             } else {
                 state.adminLoginError = 'Incorrect PIN';
-                const container = document.getElementById('pinContainer');
-                container.classList.remove('animate-shake');
-                void container.offsetWidth; 
-                container.classList.add('animate-shake');
+                render();
             }
-            render();
         };
 
         window.setCategory = (cat) => {
@@ -638,14 +390,11 @@ html, body {
             render();
         };
 
-        // FIX: Proactively check tab when opening checkout
         window.toggleCheckout = (isOpen, mode = null) => {
             state.isCheckoutOpen = isOpen;
             if (isOpen) state.checkoutMode = mode || state.checkoutMode || 'cart';
             render();
-            // After render, if we have a table number, trigger check immediately
             if (isOpen && state.tableNumber) {
-                // Small delay to ensure DOM is ready
                 setTimeout(() => setTableNumber(state.tableNumber), 50);
             }
         };
@@ -675,8 +424,6 @@ html, body {
             return openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
         }
 
-
-        // NEW: Aggregate all pending (unpaid tab) bills across ALL tables
         function getAllPendingTabs() {
             const open = state.orders.filter(o =>
                 o.paymentStatus === 'pay_later' &&
@@ -695,11 +442,9 @@ html, body {
             return Object.values(byTable).sort((a, b) => Number(a.table) - Number(b.table));
         }
 
-        // Enhanced DOM-based update to SHOW BILL DETAILS and BILL COUNT
         window.setTableNumber = (num) => {
             state.tableNumber = num;
             
-            // Get Open Orders
             const openOrders = state.orders.filter(o => 
                 o.tableNumber === num && 
                 o.paymentStatus === 'pay_later' &&
@@ -709,20 +454,18 @@ html, body {
             state.tabTotal = openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
             const pendingBillCount = openOrders.length; 
 
-            // 1. Update Button State
             const btn = document.getElementById('confirmBtn');
             const hasCartItems = state.cart.length > 0;
             const hasTab = state.tabTotal > 0;
             
             if (btn) {
                 const canProceed = num && (hasCartItems || hasTab);
-                
                 btn.disabled = !canProceed;
                 
                 if (canProceed) {
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed', 'grayscale');
                 } else {
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    btn.classList.add('opacity-50', 'cursor-not-allowed', 'grayscale');
                 }
                 
                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -741,18 +484,15 @@ html, body {
                 }
             }
             
-            // 2. Hide "Empty Cart" message if Tab exists
             const emptyMsg = document.getElementById('emptyCartMsg');
             if (emptyMsg) {
                 if (hasTab && !hasCartItems) emptyMsg.classList.add('hidden');
                 else if (!hasTab && !hasCartItems) emptyMsg.classList.remove('hidden');
             }
 
-            // 3. Update Tab Info Section (No Re-render)
             const tabContainer = document.getElementById('tabInfoContainer');
             if (tabContainer) {
                 if (hasTab) {
-                    // Aggregate items for display
                     const aggregated = {};
                     openOrders.forEach(o => {
                         if (o.items) {
@@ -803,12 +543,9 @@ html, body {
             }
         };
 
-        // NEW: Quickly load a pending bill table from the list inside the Check Bill card
         window.selectPendingTable = (tableNum) => {
             state.tableNumber = String(tableNum);
-            // Re-render so the input reflects the table number
             render();
-            // After render, run the same bill-check logic to populate tab details
             setTimeout(() => {
                 const input = document.getElementById('tableNumberInput');
                 if (input) input.value = String(tableNum);
@@ -823,18 +560,12 @@ html, body {
             setupDataListeners(); 
         };
 
-        // --- Admin Actions ---
-
         window.handleAddCategory = async (e) => {
             e.preventDefault();
             const name = document.getElementById('newCatName').value;
             if(!name) return;
-            
             const basePath = "artifacts/ooru-mess-github/public/data";
-            await addDoc(collection(db, basePath, "categories"), {
-                name: name,
-                order: state.categories.length + 1
-            });
+            await addDoc(collection(db, basePath, "categories"), { name: name, order: state.categories.length + 1 });
             document.getElementById('newCatName').value = '';
         };
 
@@ -844,14 +575,9 @@ html, body {
             const variant = document.getElementById('itemVariant').value;
             const price = parseFloat(document.getElementById('itemPrice').value);
             const category = document.getElementById('itemCategory').value;
-
             if(!name || !price || !category) return;
-
             const basePath = "artifacts/ooru-mess-github/public/data";
-            await addDoc(collection(db, basePath, "menu"), {
-                name, variant, price, category
-            });
-            
+            await addDoc(collection(db, basePath, "menu"), { name, variant, price, category });
             document.getElementById('itemName').value = '';
             document.getElementById('itemVariant').value = '';
             document.getElementById('itemPrice').value = '';
@@ -869,18 +595,13 @@ html, body {
             render();
         }
 
-        // --- Order & Payment Logic ---
-
         window.initiatePayment = () => {
              if (!state.tableNumber) return;
              if (state.cart.length === 0 && state.tabTotal === 0) return;
-             
-             // If ordering new items, go to confirmation first
              if (state.cart.length > 0) {
                  state.isCheckoutOpen = false;
                  state.isConfirmationOpen = true;
              } else {
-                 // Just settling tab, skip confirmation, go straight to payment
                  state.isCheckoutOpen = false;
                  state.isPaymentOpen = true;
                  state.paymentStep = 'selection';
@@ -915,11 +636,7 @@ html, body {
                 }
                 if (!state.isDemoMode) {
                     const basePath = "artifacts/ooru-mess-github/public/data";
-                    const q = query(
-                        collection(db, basePath, "orders"), 
-                        where("tableNumber", "==", state.tableNumber),
-                        where("paymentStatus", "==", "pay_later")
-                    );
+                    const q = query(collection(db, basePath, "orders"), where("tableNumber", "==", state.tableNumber), where("paymentStatus", "==", "pay_later"));
                     const snapshot = await getDocs(q);
                     const batch = writeBatch(db);
                     snapshot.docs.forEach(docSnap => {
@@ -930,9 +647,7 @@ html, body {
                     await batch.commit();
                 } else {
                     state.orders.forEach(o => {
-                        if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') {
-                            o.paymentStatus = 'paid';
-                        }
+                        if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') o.paymentStatus = 'paid';
                     });
                 }
                 alert(`Full Bill Settled! Table ${state.tableNumber} is now clear.`);
@@ -1001,41 +716,23 @@ html, body {
             }
             try {
                 const basePath = "artifacts/ooru-mess-github/public/data";
-                const orderRef = doc(db, basePath, "orders", orderId);
-                await updateDoc(orderRef, { status: newStatus });
-            } catch (e) {
-                console.error(e);
-            }
+                await updateDoc(doc(db, basePath, "orders", orderId), { status: newStatus });
+            } catch (e) { console.error(e); }
         };
-
-
-        // --- Render Functions ---
 
         function render() {
             const appEl = document.getElementById('app');
-            
-            if (state.error) {
-                renderError(appEl);
-                return;
-            }
-
+            if (state.error) { renderError(appEl); return; }
             if (state.loading) {
-                appEl.innerHTML = `
-                    <div class="h-dvh flex items-center justify-center flex-col text-orange-600">
-                        <i data-lucide="loader-2" class="w-12 h-12 mb-4 animate-spin"></i>
-                        <p class="font-bold">Loading Menu...</p>
-                    </div>`;
+                appEl.innerHTML = `<div class="h-dvh flex items-center justify-center flex-col text-orange-600"><i data-lucide="loader-2" class="w-12 h-12 mb-4 animate-spin"></i><p class="font-bold">Loading Menu...</p></div>`;
                 lucide.createIcons();
                 return;
             }
-
-            // --- SCROLL FIX START ---
             let kdsScrollLeft = 0;
             if (state.view === 'kitchen') {
                 const scrollContainer = document.getElementById('kds-container');
                 if (scrollContainer) kdsScrollLeft = scrollContainer.scrollLeft;
             }
-            // --- SCROLL FIX END ---
 
             if (state.view === 'landing') renderLanding(appEl);
             else if (state.view === 'customer') renderCustomer(appEl);
@@ -1044,65 +741,51 @@ html, body {
             
             lucide.createIcons();
 
-            // --- SCROLL FIX RESTORE ---
             if (state.view === 'kitchen') {
                 const scrollContainer = document.getElementById('kds-container');
-                if (scrollContainer) {
-                    scrollContainer.scrollLeft = kdsScrollLeft;
-                }
+                if (scrollContainer) scrollContainer.scrollLeft = kdsScrollLeft;
             }
         }
 
         function renderError(container) {
-            const isPermission = state.error?.code === 'permission-denied';
-            const isProtocol = state.error?.code === 'protocol-error';
-            
             container.innerHTML = `
             <div class="h-dvh bg-white flex flex-col items-center justify-center p-6 text-center">
                 <div class="bg-red-50 p-6 rounded-2xl max-w-lg w-full border border-red-100 shadow-xl">
-                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i data-lucide="alert-triangle" class="w-8 h-8 text-red-600"></i>
-                    </div>
                     <h2 class="text-2xl font-bold text-gray-800 mb-2">Setup Required</h2>
                     <p class="text-gray-600 mb-4">${state.error.message}</p>
-                    ${isPermission ? `
-                    <div class="text-left bg-gray-900 text-gray-300 p-4 rounded-lg text-xs font-mono overflow-x-auto mb-4">
-                        <p class="text-green-400 mb-2">// Update Firebase Rules</p>
-                        match /databases/{database}/documents { allow read, write: if true; }
-                    </div>` : ''}
-                    <div class="flex flex-col gap-3">
-                        ${!isProtocol ? '<button onclick="window.location.reload()" class="bg-gray-800 text-white py-3 rounded-xl font-bold">Retry</button>' : ''}
-                        <button onclick="enterDemoMode()" class="bg-orange-600 text-white py-3 rounded-xl font-bold shadow-lg">Enter Demo Mode</button>
-                    </div>
+                    <button onclick="enterDemoMode()" class="btn-3d btn-orange w-full py-3 font-bold text-lg">Enter Demo Mode</button>
                 </div>
             </div>`;
         }
-
-        
-        
         
         function renderLanding(container) {
             container.innerHTML = `
-                <div class="landing-screen">
-                  <div class="landing-bg"></div>
-
-                  <!-- Admin hotspot (top-right) -->
-                  <button class="landing-admin-hotspot" onclick="setView('admin')" title="Admin Settings"></button>
-
-                  <div class="landing-logo-wrap">
-                    <img src="oorumess.png" alt="Ooru Mess Logo">
+                <div class="landing-screen p-6">
+                  <div class="landing-pattern"></div>
+                  
+                  <!-- Hotspot -->
+                  <div class="absolute top-4 right-4 z-20">
+                    <button onclick="setView('admin')" class="w-10 h-10 rounded-full bg-white/50 text-orange-900/20"></button>
                   </div>
 
-                  <div class="landing-actions">
-                    <button class="landing-btn primary" onclick="setView('customer')">Place Order</button>
-                    <button class="landing-btn secondary" onclick="setView('kitchen')">Kitchen View</button>
+                  <div class="flex-1 flex items-center justify-center w-full">
+                    <img src="oorumess.png" alt="Ooru Mess Logo" class="max-w-[80vw] max-h-[50vh] object-contain drop-shadow-2xl">
+                  </div>
+
+                  <div class="w-full max-w-md space-y-4 mb-8">
+                    <button class="btn-3d btn-orange w-full py-3 text-lg font-extrabold tracking-wide flex items-center justify-center gap-2" onclick="setView('customer')">
+                        <span>Place Order</span>
+                        <i data-lucide="utensils" class="w-5 h-5"></i>
+                    </button>
+                    
+                    <button class="btn-3d btn-green w-full py-3 text-lg font-bold tracking-wide flex items-center justify-center gap-2" onclick="setView('kitchen')">
+                        <span>Kitchen View</span>
+                        <i data-lucide="chef-hat" class="w-5 h-5"></i>
+                    </button>
                   </div>
                 </div>
             `;
         }
-
-
-
 
         function renderAdmin(container) {
             const categories = state.categories.sort((a,b) => a.order - b.order);
@@ -1111,200 +794,123 @@ html, body {
             const groupedMenuHtml = categories.map(cat => {
                 const catItems = menuItems.filter(item => item.category === cat.name);
                 const isExpanded = state.adminExpandedCategories[cat.name];
-                
                 return `
-                    <div class="mb-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="mb-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div onclick="toggleAdminCategory('${cat.name}')" class="p-4 flex justify-between items-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition select-none">
                             <h3 class="font-bold text-gray-800 flex items-center gap-2">
-                                <i data-lucide="chevron-${isExpanded ? 'down' : 'right'}" class="w-5 h-5 transition-transform text-gray-400"></i>
+                                <i data-lucide="chevron-${isExpanded ? 'down' : 'right'}" class="w-5 h-5 text-gray-400"></i>
                                 ${cat.name}
                             </h3>
                             <span class="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-bold">${catItems.length}</span>
                         </div>
                         <div class="${isExpanded ? 'block' : 'hidden'} p-4 border-t border-gray-100 bg-white">
                             <div class="space-y-2">
-                                ${catItems.length > 0 ? catItems.map(item => `
-                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition group">
-                                        <div>
-                                            <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
-                                            ${item.variant ? `<div class="text-xs text-gray-500">• ${item.variant}</div>` : ''}
-                                        </div>
+                                ${catItems.map(item => `
+                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition">
+                                        <div><div class="font-bold text-gray-800 text-sm">${item.name}</div></div>
                                         <div class="flex items-center gap-4">
                                             <span class="font-bold text-gray-900 text-sm">RM ${parseFloat(item.price).toFixed(2)}</span>
-                                            <button onclick="handleDeleteItem('${item.id}')" class="text-gray-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                            <button onclick="handleDeleteItem('${item.id}')" class="text-gray-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                         </div>
                                     </div>
-                                `).join('') : '<p class="text-xs text-gray-400 italic py-2 text-center">No items in this category.</p>'}
+                                `).join('')}
                             </div>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            const uncategorized = menuItems.filter(item => !categories.some(c => c.name === item.category));
-            const uncategorizedHtml = uncategorized.length > 0 ? `
-                <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-red-100">
-                    <h3 class="font-bold text-red-800 mb-3 flex justify-between items-center border-b border-red-100 pb-2">
-                        Uncategorized
-                        <span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold">${uncategorized.length}</span>
-                    </h3>
-                    <div class="space-y-2">
-                        ${uncategorized.map(item => `
-                            <div class="flex justify-between items-center p-3 bg-red-50/50 rounded-lg">
-                                <div>
-                                    <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
-                                    <div class="text-xs text-gray-500 italic">Category: ${item.category} (Missing)</div>
-                                </div>
-                                <div class="flex items-center gap-4">
-                                    <span class="font-bold text-gray-900 text-sm">RM ${parseFloat(item.price).toFixed(2)}</span>
-                                    <button onclick="handleDeleteItem('${item.id}')" class="text-red-400 hover:text-red-600 p-1.5"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            ` : '';
-
             container.innerHTML = `
                 <div class="min-h-screen bg-gray-50 pb-20">
-                    <div class="bg-slate-900 text-white p-4 sticky top-0 z-20 flex items-center justify-between shadow-md">
-                        <div class="flex items-center gap-3">
-                            <button onclick="setView('landing')" class="p-1 hover:bg-slate-700 rounded"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
-                            <h1 class="font-bold text-xl">Admin Settings</h1>
-                        </div>
+                    <div class="bg-slate-900 text-white p-4 sticky top-0 z-20 flex items-center gap-3 shadow-md">
+                        <button onclick="setView('landing')" class="p-1"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
+                        <h1 class="font-bold text-xl">Admin</h1>
                     </div>
-
                     <div class="max-w-4xl mx-auto p-4 space-y-6">
-                        
-                        <!-- Sales Dashboard Link Card -->
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                                    <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
-                                </div>
-                                <div>
-                                    <h2 class="font-bold text-lg text-gray-800">Sales Dashboard</h2>
-                                    <p class="text-xs text-gray-500">View analytics, revenue, and order trends</p>
-                                </div>
-                            </div>
-                            <a href="https://theva73.github.io/OoruMess/SalesDashboard.html" class="w-full sm:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 flex items-center justify-center gap-2 transition transform active:scale-95">
-                                Open Dashboard <i data-lucide="external-link" class="w-4 h-4"></i>
-                            </a>
-                        </div>
-
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-blue-600"></i> Manage Categories</h2>
-                            <form onsubmit="handleAddCategory(event)" class="flex gap-2">
-                                <input type="text" id="newCatName" placeholder="New Category Name (e.g. Desserts)" class="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" required>
-                                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700">Add</button>
-                            </form>
-                            <div class="flex flex-wrap gap-2 mt-4">
-                                ${categories.map(c => `<span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">${c.name}</span>`).join('')}
-                            </div>
-                        </div>
-
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-5 h-5 text-green-600"></i> Add New Food Item</h2>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                             <h2 class="font-bold text-lg mb-4">Add Item</h2>
                             <form onsubmit="handleAddItem(event)" class="space-y-4">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <input type="text" id="itemName" placeholder="Food Name (e.g. Ice Cream)" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
-                                    <input type="text" id="itemVariant" placeholder="Variant (Optional - e.g. Vanilla)" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500">
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="relative">
-                                        <span class="absolute left-3 top-3 text-gray-500">RM</span>
-                                        <input type="number" id="itemPrice" step="0.10" placeholder="0.00" class="p-3 pl-10 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
-                                    </div>
-                                    <select id="itemCategory" class="p-3 border rounded-lg w-full outline-none focus:ring-2 focus:ring-green-500" required>
-                                        <option value="" disabled selected>Select Category</option>
+                                <input type="text" id="itemName" placeholder="Name" class="p-3 border rounded-xl w-full bg-gray-50" required>
+                                <div class="flex gap-2">
+                                    <input type="number" id="itemPrice" step="0.10" placeholder="RM 0.00" class="p-3 border rounded-xl w-1/3 bg-gray-50" required>
+                                    <select id="itemCategory" class="p-3 border rounded-xl w-2/3 bg-gray-50" required>
+                                        <option value="" disabled selected>Category</option>
                                         ${categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                                     </select>
                                 </div>
-                                <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg shadow-green-100">Add to Menu</button>
+                                <button type="submit" class="btn-3d btn-green w-full py-3 font-bold">Add to Menu</button>
                             </form>
                         </div>
-
-                        <div>
-                            <h2 class="font-bold text-xl mb-4 flex items-center gap-2"><i data-lucide="list" class="w-5 h-5 text-orange-600"></i> Current Menu</h2>
-                            ${groupedMenuHtml}
-                            ${uncategorizedHtml}
-                        </div>
-
+                        <div>${groupedMenuHtml}</div>
                     </div>
                 </div>
             `;
         }
 
         function renderCustomer(container) {
-            if (!state.activeCategory && state.categories.length > 0) {
-                state.activeCategory = state.categories[0].name;
-            }
+            if (!state.activeCategory && state.categories.length > 0) state.activeCategory = state.categories[0].name;
 
             const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
-            
             const visibleItems = state.menuItems.filter(item => item.category === state.activeCategory);
 
+            // --- REDESIGNED CARD ---
             const itemsHtml = visibleItems.map(item => {
                 const inCart = state.cart.find(c => c.id === item.id);
-                // NEW: Compact Button Layout Logic
-                const countBadge = inCart ? `<div class="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-md z-10 animate-bounce-short">${inCart.quantity}</div>` : '';
-                const activeClass = inCart ? 'ring-2 ring-orange-500 bg-orange-50' : 'bg-white hover:shadow-md';
+                const quantity = inCart ? inCart.quantity : 0;
+                
+                // Original Layout Restored: Flex Column justify-between.
+                // Bottom row: Price (Left) + Button (Right Corner)
 
                 return `
-                <div class="relative group">
-                    ${countBadge}
-                    <div class="item-btn p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-full ${activeClass} cursor-pointer select-none" onclick="${!inCart ? `addToCart('${item.id}')` : ''}">
+                <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex flex-col justify-between h-full relative group hover:border-orange-200 transition-colors">
+                    ${quantity > 0 ? `<div class="absolute top-0 right-0 bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg rounded-tr-lg shadow-sm">${quantity}</div>` : ''}
+                    
+                    <div class="mb-3">
+                        <h3 class="font-bold text-gray-800 text-sm leading-tight line-clamp-2">${item.name}</h3>
+                        ${item.variant ? `<p class="text-[10px] text-gray-400 font-medium uppercase mt-0.5">${item.variant}</p>` : ''}
+                    </div>
+                    
+                    <div class="flex items-end justify-between mt-auto">
+                        <span class="font-bold text-gray-900 mb-1">RM ${parseFloat(item.price).toFixed(2)}</span>
                         
-                        <div class="mb-2">
-                            <h3 class="font-bold text-gray-800 text-sm leading-tight line-clamp-2">${item.name}</h3>
-                            ${item.variant ? `<p class="text-[10px] text-gray-500 mt-0.5 font-medium uppercase tracking-wide">${item.variant}</p>` : ''}
-                        </div>
-                        
-                        <div class="flex justify-between items-end mt-auto">
-                            <span class="font-bold text-base text-gray-900">RM ${parseFloat(item.price).toFixed(2)}</span>
-                            
-                            ${inCart ? `
-                                <div class="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden" onclick="event.stopPropagation()">
-                                    <button onclick="updateQuantity('${item.id}', -1)" class="px-2 py-1 hover:bg-red-50 text-red-600 transition"><i data-lucide="minus" class="w-3 h-3"></i></button>
-                                    <button onclick="updateQuantity('${item.id}', 1)" class="px-2 py-1 hover:bg-green-50 text-green-600 transition border-l border-gray-100"><i data-lucide="plus" class="w-3 h-3"></i></button>
-                                </div>
-                            ` : `
-                                <div class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                                    <i data-lucide="plus" class="w-4 h-4"></i>
-                                </div>
-                            `}
-                        </div>
+                        ${quantity === 0 ? `
+                            <button onclick="addToCart('${item.id}')" class="btn-3d btn-add-item px-4 py-1.5 text-xs font-bold flex items-center gap-1 transition-transform">
+                                ADD <i data-lucide="plus" class="w-3 h-3"></i>
+                            </button>
+                        ` : `
+                            <div class="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-100">
+                                <button onclick="updateQuantity('${item.id}', -1)" class="btn-3d btn-qty text-red-500 hover:bg-red-50"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                                <span class="font-bold text-sm text-gray-800 w-4 text-center">${quantity}</span>
+                                <button onclick="updateQuantity('${item.id}', 1)" class="btn-3d btn-qty text-green-600 hover:bg-green-50"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                            </div>
+                        `}
                     </div>
                 </div>`;
             }).join('');
 
-            const tabsHtml = state.categories
-                .sort((a,b) => a.order - b.order)
-                .map(cat => `
-                    <button onclick="setCategory('${cat.name}')" 
-                        class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all transform active:scale-95 ${
-                            state.activeCategory === cat.name
-                            ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
-                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                        }">
-                        ${cat.name}
-                    </button>
-                `).join('');
+            // --- SLIM TABS ---
+            const tabsHtml = state.categories.sort((a,b) => a.order - b.order).map(cat => `
+                <button onclick="setCategory('${cat.name}')" 
+                    class="btn-tab px-4 py-1.5 text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all ${state.activeCategory === cat.name ? 'active' : 'hover:bg-slate-50'}">
+                    ${cat.name}
+                </button>
+            `).join('');
 
+            // --- REDESIGNED MODALS ---
             let modalHtml = '';
             if (state.isCheckoutOpen) {
                 const cartItemsHtml = state.cart.map(item => `
-                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg mb-2">
+                    <div class="flex justify-between items-center bg-white p-3 rounded-xl mb-2 border border-gray-100 shadow-sm">
                         <div>
-                            <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                            <div class="font-bold text-gray-800 text-sm">${item.name}</div>
                             <div class="text-xs text-gray-500">${item.variant}</div>
                             <div class="text-xs font-bold text-orange-600 mt-1">RM ${(item.price * item.quantity).toFixed(2)}</div>
                         </div>
-                        <div class="flex items-center gap-2 bg-white border rounded px-2 py-1 shadow-sm">
-                            <button onclick="updateQuantity('${item.id}', -1)" class="text-red-500"><i data-lucide="minus" class="w-3 h-3"></i></button>
-                            <span class="text-xs font-bold w-4 text-center">${item.quantity}</span>
-                            <button onclick="updateQuantity('${item.id}', 1)" class="text-green-500"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                        <div class="flex items-center gap-2">
+                             <button onclick="updateQuantity('${item.id}', -1)" class="btn-3d btn-qty text-red-500"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                             <span class="font-bold text-sm text-center w-6">${item.quantity}</span>
+                             <button onclick="updateQuantity('${item.id}', 1)" class="btn-3d btn-qty text-green-600"><i data-lucide="plus" class="w-3 h-3"></i></button>
                         </div>
                     </div>
                 `).join('');
@@ -1312,61 +918,40 @@ html, body {
                 const grandTotal = cartTotal + state.tabTotal;
 
                 modalHtml = `
-                <div class="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm p-0 sm:p-4">
-                    <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
-                        <div class="p-4 border-b flex justify-between items-center bg-orange-50 sm:rounded-t-2xl">
-                            <h2 class="font-bold flex items-center gap-2 text-lg"><i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i> Your Order</h2>
-                            <button onclick="toggleCheckout(false)" class="p-2 hover:bg-white rounded-full transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <div class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm">
+                    <div class="bg-slate-50 w-full max-w-md h-[85vh] sm:h-auto sm:max-h-[85vh] sm:rounded-2xl rounded-t-2xl flex flex-col shadow-2xl animate-slide-up">
+                        <div class="p-4 border-b flex justify-between items-center bg-white rounded-t-2xl">
+                            <h2 class="font-bold text-lg text-slate-800">Your Cart</h2>
+                            <button onclick="toggleCheckout(false)" class="p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
                         <div class="p-4 overflow-y-auto flex-1">
-                            ${state.cart.length ? cartItemsHtml : '<p id="emptyCartMsg" class="text-center text-gray-400 py-10 flex flex-col items-center"><i data-lucide="shopping-cart" class="w-8 h-8 mb-2 opacity-50"></i>Cart is empty</p>'}
+                            ${state.cart.length ? cartItemsHtml : '<div class="text-center py-10 text-gray-300 flex flex-col items-center"><i data-lucide="shopping-basket" class="w-12 h-12 mb-2"></i>Cart Empty</div>'}
                             
-                            <div class="mt-4 pt-4 border-t border-dashed border-gray-300">
-                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Table Number <span class="text-red-500">*</span></label>
-                                <input id="tableNumberInput" type="number" oninput="setTableNumber(this.value)" value="${state.tableNumber}" placeholder="e.g. 5" class="w-full p-3 border rounded-xl text-center text-2xl font-bold outline-none focus:ring-2 focus:ring-orange-500 bg-gray-50 placeholder-gray-300">
-                                <p class="text-xs text-center text-gray-400 mt-2">Enter number to check bill or place order</p>
+                            <div class="mt-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Table Number</label>
+                                <input id="tableNumberInput" type="number" oninput="setTableNumber(this.value)" value="${state.tableNumber}" placeholder="No." class="w-full p-3 rounded-lg text-center text-xl font-bold bg-slate-50 border border-slate-200 focus:border-orange-500 outline-none transition-colors">
                             </div>
-
+                            
                             ${(() => {
                                 if (state.checkoutMode !== 'check_bill') return '';
                                 const tabs = getAllPendingTabs();
                                 if (!tabs.length) return '';
-                                const totalAll = tabs.reduce((s, t) => s + t.total, 0);
-
                                 const rows = tabs.map(t => {
                                     const isActive = state.tableNumber && String(state.tableNumber) === String(t.table);
                                     return `
-                                        <button onclick="selectPendingTable('${t.table}')"
-                                            class="w-full flex items-center justify-between p-3 rounded-xl border text-left transition ${isActive ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200 hover:bg-gray-50'}">
-                                            <div>
-                                                <div class="font-bold text-gray-900">Table ${t.table}</div>
-                                                <div class="text-xs text-gray-500">${t.count} pending bill${t.count > 1 ? 's' : ''}</div>
-                                            </div>
-                                            <div class="text-right">
-                                                <div class="font-bold text-gray-900">RM ${t.total.toFixed(2)}</div>
-                                                <div class="text-[11px] font-semibold text-orange-600">Tap to view</div>
-                                            </div>
-                                        </button>
-                                    `;
+                                        <button onclick="selectPendingTable('${t.table}')" class="w-full flex items-center justify-between p-3 rounded-lg border mb-2 text-left transition ${isActive ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}">
+                                            <div><div class="font-bold text-gray-900">Table ${t.table}</div><div class="text-xs text-gray-500">${t.count} orders</div></div>
+                                            <div class="font-bold text-orange-600">RM ${t.total.toFixed(2)}</div>
+                                        </button>`;
                                 }).join('');
-
-                                return `
-                                    <div class="mt-4">
-                                        <div class="flex items-center justify-between mb-2">
-                                            <div class="text-xs font-bold text-gray-500 uppercase tracking-wider">Pending Bills</div>
-                                            <div class="text-xs font-bold text-gray-700">RM ${totalAll.toFixed(2)}</div>
-                                        </div>
-                                        <div class="space-y-2">${rows}</div>
-                                        <p class="text-[11px] text-gray-400 text-center mt-2">Select a table to view and settle its bill.</p>
-                                    </div>
-                                `;
+                                return `<div class="mt-4"><div class="text-xs font-bold text-gray-400 uppercase mb-2">Pending Bills</div>${rows}</div>`;
                             })()}
 
                             <div id="tabInfoContainer" class="hidden"></div>
                         </div>
-                        <div class="p-4 border-t bg-gray-50 sm:rounded-b-2xl space-y-3">
-                            <button id="confirmBtn" onclick="initiatePayment()" disabled class="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg opacity-50 transition-opacity flex justify-center items-center gap-2 cursor-not-allowed">
-                                <span>Proceed to Payment</span>
+                        <div class="p-4 border-t bg-white pb-8 sm:pb-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                             <button id="confirmBtn" onclick="initiatePayment()" disabled class="btn-3d btn-orange w-full py-3 text-lg font-bold flex justify-between px-6 items-center opacity-50 grayscale transition-all">
+                                <span>Proceed</span>
                                 <span class="bg-white/20 px-2 py-0.5 rounded text-sm">RM ${(state.tabTotal > 0 ? grandTotal : cartTotal).toFixed(2)}</span>
                             </button>
                         </div>
@@ -1374,82 +959,20 @@ html, body {
                 </div>`;
             }
 
+            // --- CONFIRMATION & PAYMENT (Slim Buttons) ---
             let confirmationModalHtml = '';
             if(state.isConfirmationOpen) {
-                const cartItemsSummary = state.cart.map(item => `
-                    <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                        <div class="flex items-center gap-3">
-                            <span class="bg-gray-100 text-gray-700 font-bold w-6 h-6 flex items-center justify-center rounded-full text-xs">${item.quantity}x</span>
-                            <span class="text-sm font-medium text-gray-800">${item.name}</span>
-                        </div>
-                        <span class="text-sm font-bold text-gray-900">RM ${(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                `).join('');
-
-                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const grandTotal = cartTotal + state.tabTotal;
-
-                // ADDED: Tab Items in Confirmation
-                let tabSummaryHtml = '';
-                if (state.tabTotal > 0) {
-                    const openOrders = state.orders.filter(o => 
-                        o.tableNumber === state.tableNumber && 
-                        o.paymentStatus === 'pay_later' &&
-                        o.status !== 'cancelled'
-                    );
-                    
-                    const aggregated = {};
-                    openOrders.forEach(o => {
-                        if (o.items) {
-                            o.items.forEach(i => {
-                                const k = i.name + (i.variant || '');
-                                if(!aggregated[k]) aggregated[k] = { ...i, quantity: 0, total: 0 };
-                                aggregated[k].quantity += i.quantity;
-                                aggregated[k].total += (i.price * i.quantity);
-                            });
-                        }
-                    });
-
-                    tabSummaryHtml += `<div class="mb-2 pt-2 border-t border-gray-200 mt-2"><h3 class="font-bold text-blue-600 text-xs uppercase mb-2">Previous Unpaid Items</h3>`;
-                    tabSummaryHtml += Object.values(aggregated).map(i => `
-                        <div class="flex justify-between items-center py-1 text-gray-500">
-                            <div class="flex items-center gap-3">
-                                <span class="bg-blue-50 text-blue-700 font-bold w-5 h-5 flex items-center justify-center rounded-full text-[10px]">${i.quantity}x</span>
-                                <span class="text-xs font-medium">${i.name}</span>
-                            </div>
-                            <span class="text-xs font-bold">RM ${i.total.toFixed(2)}</span>
-                        </div>
-                    `).join('');
-                    tabSummaryHtml += `</div>`;
-                }
-
-                confirmationModalHtml = `
+                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                 const grandTotal = cartTotal + state.tabTotal;
+                 confirmationModalHtml = `
                 <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4">
-                    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl animate-slide-up p-6">
-                        <div class="text-center mb-6">
-                            <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <i data-lucide="check-circle-2" class="w-6 h-6 text-orange-600"></i>
-                            </div>
-                            <h2 class="text-xl font-bold text-gray-900">Review Bill</h2>
-                            <p class="text-xs text-gray-500">Table ${state.tableNumber}</p>
-                        </div>
-                        
-                        <div class="bg-gray-50 rounded-xl p-4 mb-6 max-h-80 overflow-y-auto">
-                            ${state.cart.length > 0 ? `<h3 class="font-bold text-orange-600 text-xs uppercase mb-2">Current Order</h3>${cartItemsSummary}` : ''}
-                            ${tabSummaryHtml}
-                            <div class="flex justify-between items-center mt-3 pt-3 border-t-2 border-dashed border-gray-300">
-                                <span class="font-bold text-gray-800 text-lg">Total Due</span>
-                                <span class="font-bold text-xl text-green-600">RM ${grandTotal.toFixed(2)}</span>
-                            </div>
-                        </div>
-
+                    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-slide-up">
+                        <h2 class="text-xl font-bold text-center mb-6">Confirm Order</h2>
                         <div class="space-y-3">
-                            <button onclick="proceedToPaymentSelection()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transition flex items-center justify-center gap-2">
-                                Confirm & Pay
+                            <button onclick="proceedToPaymentSelection()" class="btn-3d btn-green w-full py-3 font-bold text-lg flex items-center justify-center gap-2">
+                                Confirm & Pay <span class="bg-white/20 px-2 rounded text-sm">RM ${grandTotal.toFixed(2)}</span>
                             </button>
-                            <button onclick="toggleConfirmation(false)" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
-                                Back to Edit
-                            </button>
+                            <button onclick="toggleConfirmation(false)" class="w-full py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl">Cancel</button>
                         </div>
                     </div>
                 </div>`;
@@ -1457,143 +980,92 @@ html, body {
 
             let paymentModalHtml = '';
             if(state.isPaymentOpen) {
-                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const grandTotal = cartTotal + state.tabTotal;
+                const grandTotal = state.cart.reduce((s,i)=>s+(i.price*i.quantity),0) + state.tabTotal;
                 const isTabActive = state.tabTotal > 0;
-
+                
                 if (state.paymentStep === 'selection') {
                     paymentModalHtml = `
                     <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4">
-                        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl animate-slide-up p-6 text-center">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-xl font-bold text-gray-900">Choose Payment</h2>
-                                <button onclick="togglePayment(false)" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-6 h-6"></i></button>
-                            </div>
-                            
-                            <div class="space-y-4">
-                                <!-- Pay Later / Add to Tab -->
-                                <div class="border rounded-xl p-4 hover:border-blue-500 transition cursor-pointer group bg-blue-50 border-blue-100" onclick="confirmPayment('pay_later')">
-                                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition">
-                                        <i data-lucide="clock" class="w-6 h-6 text-blue-600"></i>
-                                    </div>
-                                    <h3 class="font-bold text-gray-800">Pay Later (Add to Tab)</h3>
-                                    <p class="text-xs text-gray-500">Send to kitchen & pay total later</p>
-                                </div>
-
-                                <div class="relative flex py-2 items-center">
-                                    <div class="flex-grow border-t border-gray-200"></div>
-                                    <span class="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase font-bold">OR Settle Now</span>
-                                    <div class="flex-grow border-t border-gray-200"></div>
-                                </div>
-
-                                <!-- Option 1: QR -->
-                                <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="showLargeQR()">
-                                    <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition">
-                                        <i data-lucide="qr-code" class="w-6 h-6 text-orange-600"></i>
-                                    </div>
-                                    <h3 class="font-bold text-gray-800">Scan QR / DuitNow</h3>
-                                    <div class="mt-2 bg-gray-50 p-2 rounded border border-dashed border-gray-300">
-                                        <div class="mx-auto w-16 h-16 bg-white flex items-center justify-center border overflow-hidden p-1">
-                                            <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="QR Code">
-                                        </div>
-                                        <p class="text-[10px] text-gray-400 mt-1 font-bold">Pay RM ${grandTotal.toFixed(2)}</p>
-                                    </div>
-                                </div>
-
-                                <!-- Option 2: Cash -->
-                                <div class="border rounded-xl p-4 hover:border-green-500 transition cursor-pointer group" onclick="${isTabActive ? `confirmPayment('settle_tab_cash')` : `confirmPayment('cash')`}">
-                                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200 transition">
-                                        <i data-lucide="banknote" class="w-6 h-6 text-green-600"></i>
-                                    </div>
-                                    <h3 class="font-bold text-gray-800">Cash at Counter</h3>
-                                    <p class="text-xs text-gray-500">Settle Full Bill: RM ${grandTotal.toFixed(2)}</p>
+                        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 animate-slide-up text-center">
+                            <h2 class="text-xl font-bold mb-6">Select Payment</h2>
+                            <div class="space-y-3">
+                                <button onclick="confirmPayment('pay_later')" class="btn-3d w-full py-3 rounded-xl bg-blue-50 text-blue-700 font-bold border border-blue-100 shadow-[0_3px_0_#dbeafe] active:translate-y-1 active:shadow-none transition-all flex flex-col items-center">
+                                    <i data-lucide="clock" class="w-5 h-5 mb-1"></i>
+                                    <span class="text-sm">Pay Later (Tab)</span>
+                                </button>
+                                <div class="flex gap-3">
+                                    <button onclick="showLargeQR()" class="btn-3d flex-1 py-3 rounded-xl bg-orange-50 text-orange-700 font-bold border border-orange-100 shadow-[0_3px_0_#ffedd5] active:translate-y-1 active:shadow-none transition-all flex flex-col items-center">
+                                        <i data-lucide="qr-code" class="w-5 h-5 mb-1"></i> <span class="text-sm">QR Pay</span>
+                                    </button>
+                                    <button onclick="${isTabActive ? `confirmPayment('settle_tab_cash')` : `confirmPayment('cash')`}" class="btn-3d flex-1 py-3 rounded-xl bg-green-50 text-green-700 font-bold border border-green-100 shadow-[0_3px_0_#dcfce7] active:translate-y-1 active:shadow-none transition-all flex flex-col items-center">
+                                        <i data-lucide="banknote" class="w-5 h-5 mb-1"></i> <span class="text-sm">Cash</span>
+                                    </button>
                                 </div>
                             </div>
+                            <button onclick="togglePayment(false)" class="mt-6 text-gray-400 font-bold text-sm">Cancel</button>
                         </div>
-                    </div>
-                    `;
+                    </div>`;
                 } else if (state.paymentStep === 'qr_fullscreen') {
                     paymentModalHtml = `
-                    <div class="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center backdrop-blur-md p-4">
-                        <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-slide-up overflow-hidden relative">
-                            <div class="bg-orange-600 p-6 text-white text-center relative overflow-hidden">
-                                <div class="absolute inset-0 bg-orange-700 opacity-20 transform -skew-y-12 scale-150"></div>
-                                <h2 class="text-2xl font-bold relative z-10 mb-1">Scan to Pay</h2>
-                                <p class="text-orange-100 text-sm relative z-10">Total Amount</p>
-                                <p class="text-3xl font-bold relative z-10">RM ${grandTotal.toFixed(2)}</p>
+                    <div class="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
+                        <div class="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl animate-slide-up">
+                            <div class="bg-orange-600 p-6 text-white text-center">
+                                <p class="text-orange-100 text-sm font-bold opacity-80">TOTAL AMOUNT</p>
+                                <p class="text-3xl font-black">RM ${grandTotal.toFixed(2)}</p>
                             </div>
-                            
                             <div class="p-8 flex flex-col items-center">
-                                <div class="w-64 h-64 bg-white p-2 rounded-xl shadow-lg border-2 border-orange-100 mb-6 relative group">
-                                    <div class="absolute -inset-1 rounded-2xl border-2 border-dashed border-orange-300 animate-pulse"></div>
-                                    <div class="w-full h-full bg-white flex items-center justify-center relative z-10 p-4">
-                                        <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="DuitNow QR">
-                                    </div>
-                                </div>
-                                
-                                <p class="text-sm text-gray-500 text-center mb-6 max-w-[200px]">Open your banking app or e-wallet to scan this DuitNow QR code.</p>
-                                
-                                <div class="w-full space-y-3">
-                                    <button onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `confirmPayment('qr')`}" class="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transform active:scale-95 transition flex items-center justify-center gap-2">
-                                        <i data-lucide="check-circle" class="w-5 h-5"></i>
-                                        I have Paid
-                                    </button>
-                                    <button onclick="backToSelection()" class="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
-                                        Back
-                                    </button>
-                                </div>
+                                <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-64 h-64 object-contain border-4 border-orange-100 rounded-xl mb-6">
+                                <button onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `confirmPayment('qr')`}" class="btn-3d btn-green w-full py-3 text-lg font-bold mb-3">I Have Paid</button>
+                                <button onclick="backToSelection()" class="text-gray-400 font-bold text-sm">Go Back</button>
                             </div>
                         </div>
-                    </div>
-                    `;
+                    </div>`;
                 }
             }
 
+            // --- FLOATING CART (Slimmer) ---
             let floatingCart = '';
-            if (cartCount > 0 && !state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
-                floatingCart = `
-                <div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
-                    <div class="max-w-4xl mx-auto flex items-center justify-between">
-                        <div>
-                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">${cartCount} Items</p>
-                            <p class="text-xl font-bold text-gray-900">Total: RM ${cartTotal.toFixed(2)}</p>
-                        </div>
-                        <button onclick="toggleCheckout(true, 'cart')" class="bg-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-700 transition transform active:scale-95">View Cart</button>
-                    </div>
-                </div>`;
-            } else if (!state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
-                 floatingCart = `
-                <div class="fixed bottom-4 right-4 z-30">
-                    <button onclick="toggleCheckout(true, 'check_bill')" class="bg-white border border-gray-200 text-gray-600 p-3 rounded-full shadow-lg flex items-center gap-2 font-bold text-sm hover:bg-gray-50 transition">
-                        <i data-lucide="receipt" class="w-5 h-5"></i> Check Bill
-                    </button>
-                </div>`;
+            if (!state.isCheckoutOpen && !state.isPaymentOpen && !state.isConfirmationOpen) {
+                if (cartCount > 0) {
+                    floatingCart = `
+                    <div class="fixed bottom-6 left-4 right-4 z-40 animate-slide-up">
+                        <button onclick="toggleCheckout(true, 'cart')" class="btn-3d btn-orange w-full py-3 px-6 rounded-xl flex items-center justify-between shadow-xl">
+                            <div class="flex items-center gap-3">
+                                <span class="bg-white/20 text-white font-bold w-6 h-6 flex items-center justify-center rounded text-xs">${cartCount}</span>
+                                <span class="font-bold text-sm">View Cart</span>
+                            </div>
+                            <span class="font-bold text-lg">RM ${cartTotal.toFixed(2)}</span>
+                        </button>
+                    </div>`;
+                } else {
+                     floatingCart = `
+                    <div class="fixed bottom-6 right-6 z-30 animate-slide-up">
+                        <button onclick="toggleCheckout(true, 'check_bill')" class="btn-3d bg-white text-gray-600 p-3 rounded-full shadow-[0_3px_0_#cbd5e1] border border-gray-200 flex items-center gap-2 font-bold hover:text-orange-600">
+                            <i data-lucide="receipt" class="w-5 h-5"></i>
+                            <span class="text-sm">Check Bill</span>
+                        </button>
+                    </div>`;
+                }
             }
 
             container.innerHTML = `
-                <div class="pb-28">
-                    <div class="bg-white sticky top-0 z-20 px-4 py-3 shadow-sm flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <button onclick="setView('landing')" class="text-gray-500 hover:text-black p-1 rounded hover:bg-gray-100"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                            <div>
-                                <h1 class="font-bold text-lg leading-tight">Ooru Mess</h1>
-                                <p class="text-xs text-gray-500">Digital Menu</p>
-                            </div>
+                <div class="pb-32 bg-slate-50 min-h-screen">
+                    <div class="bg-white/90 backdrop-blur-md sticky top-0 z-20 px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <button onclick="setView('landing')" class="w-9 h-9 bg-white rounded-lg shadow-sm border border-orange-100 flex items-center justify-center text-orange-900"><i data-lucide="arrow-left" class="w-4 h-4"></i></button>
+                            <h1 class="font-bold text-lg text-gray-800 tracking-tight">Ooru Mess</h1>
                         </div>
                         <div class="flex items-center gap-2">
-                             ${state.isDemoMode ? '<span class="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">DEMO</span>' : ''}
-                             <div class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200">
-                                <div class="w-2 h-2 ${state.isDemoMode ? 'bg-orange-500' : 'bg-green-500 animate-pulse'} rounded-full"></div> OPEN
-                            </div>
+                             ${state.isDemoMode ? '<span class="text-[10px] font-black tracking-widest text-orange-600 bg-orange-100 px-2 py-0.5 rounded">DEMO</span>' : ''}
                         </div>
                     </div>
 
-                    <div class="bg-white sticky top-[58px] z-10 overflow-x-auto hide-scrollbar flex px-4 py-3 border-b gap-2">
+                    <div class="sticky top-[61px] z-10 overflow-x-auto hide-scrollbar flex px-4 py-3 gap-2 bg-slate-50/95 backdrop-blur-sm border-b border-gray-100">
                         ${tabsHtml}
                     </div>
 
-                    <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                        ${itemsHtml.length ? itemsHtml : `<div class="col-span-full text-center py-10 text-gray-400">No items in this category yet.</div>`}
+                    <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        ${itemsHtml.length ? itemsHtml : `<div class="col-span-full text-center py-20 text-gray-400 font-bold opacity-50">No Items Here</div>`}
                     </div>
 
                     ${floatingCart}
@@ -1609,77 +1081,37 @@ html, body {
                 if (!timestamp) return false;
                 const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
                 const today = new Date();
-                return date.getDate() === today.getDate() &&
-                       date.getMonth() === today.getMonth() &&
-                       date.getFullYear() === today.getFullYear();
+                return date.getDate() === today.getDate() && date.getMonth() === today.getMonth();
             };
-
             const todaysOrders = state.orders.filter(o => isToday(o.timestamp));
-
             const pendingOrders = todaysOrders.filter(o => o.status === 'pending');
             const cookingOrders = todaysOrders.filter(o => o.status === 'cooking');
             const readyOrders = todaysOrders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5);
 
             const renderCard = (order, type) => {
                 const timeStr = order.timestamp && order.timestamp.toDate ? order.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Now';
-                
                 let actions = '';
                 if (type === 'pending') {
                     actions = `
                     <div class="flex gap-2 mt-3">
-                        <button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Cancel Order"><i data-lucide="x" class="w-4 h-4"></i></button>
-                        <button onclick="updateOrderStatus('${order.id}', 'cooking')" class="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-orange-600 flex items-center justify-center gap-2 transition shadow"><i data-lucide="flame" class="w-4 h-4"></i> Preparing</button>
+                        <button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        <button onclick="updateOrderStatus('${order.id}', 'cooking')" class="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold text-sm shadow">Prepare</button>
                     </div>`;
                 } else if (type === 'cooking') {
                     actions = `
                     <div class="flex gap-2 mt-3">
-                        <button onclick="updateOrderStatus('${order.id}', 'cancelled')" class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" title="Cancel Order"><i data-lucide="x" class="w-4 h-4"></i></button>
-                        <button onclick="updateOrderStatus('${order.id}', 'ready')" class="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2 transition shadow"><i data-lucide="check-circle" class="w-4 h-4"></i> Mark Ready</button>
+                        <button onclick="updateOrderStatus('${order.id}', 'ready')" class="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-sm shadow">Ready</button>
                     </div>`;
-                } else if (type === 'ready' && order.status !== 'served') {
-                    actions = `<button onclick="updateOrderStatus('${order.id}', 'served')" class="w-full mt-3 bg-gray-700 text-white py-2 rounded-lg font-bold text-sm hover:bg-gray-800 transition">Mark Served</button>`;
                 }
-
-                let displayStatus = order.status;
-                if (order.status === 'cooking') displayStatus = 'PREPARING';
-                
-                const isPaid = order.paymentStatus === 'paid';
-                let paymentBadge = '';
-                
-                if (order.paymentStatus === 'pay_later') {
-                    paymentBadge = `<span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-200 font-bold ml-1">TAB</span>`;
-                } else if (isPaid) {
-                    paymentBadge = `<span class="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded border border-green-200 font-bold ml-1">PAID</span>`;
-                } else {
-                    paymentBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 font-bold ml-1">CASH</span>`;
-                }
-
 
                 return `
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${type==='pending'?'border-blue-500':type==='cooking'?'border-orange-500':'border-green-500'} mb-4 animate-slide-up">
+                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${type==='pending'?'border-blue-500':type==='cooking'?'border-orange-500':'border-green-500'} mb-4">
                     <div class="flex justify-between items-start mb-2 border-b pb-2">
-                        <div>
-                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">Table</span>
-                            <div class="flex items-center gap-2">
-                                <div class="text-3xl font-black text-gray-800 leading-none">${order.tableNumber}</div>
-                                ${paymentBadge}
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-xs font-medium text-gray-400 flex items-center justify-end gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${timeStr}</span>
-                            <span class="text-xs font-bold uppercase px-2 py-0.5 rounded text-white mt-1 inline-block ${type==='pending'?'bg-blue-500':type==='cooking'?'bg-orange-500':'bg-green-500'}">${displayStatus}</span>
-                        </div>
+                        <div><span class="text-xs font-bold text-gray-400 uppercase">Table</span><div class="text-3xl font-black text-gray-800">${order.tableNumber}</div></div>
+                        <div class="text-right"><span class="text-xs font-medium text-gray-400">${timeStr}</span></div>
                     </div>
                     <div class="space-y-1">
-                        ${order.items.map(i => `
-                            <div class="flex gap-2 text-sm">
-                                <span class="font-bold bg-gray-100 px-1.5 rounded h-fit text-gray-700">${i.quantity}x</span>
-                                <div>
-                                    <span class="font-medium text-gray-800">${i.name}</span>
-                                    ${i.variant ? `<span class="text-xs text-gray-500 block">${i.variant}</span>` : ''}
-                                </div>
-                            </div>
-                        `).join('')}
+                        ${order.items.map(i => `<div class="flex gap-2 text-sm"><span class="font-bold bg-gray-100 px-1.5 rounded text-gray-700">${i.quantity}x</span><span class="font-medium text-gray-800">${i.name}</span></div>`).join('')}
                     </div>
                     ${actions}
                 </div>`;
@@ -1687,47 +1119,14 @@ html, body {
 
             container.innerHTML = `
                 <div class="h-dvh bg-slate-100 flex flex-col">
-                    <div class="bg-slate-900 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md">
-                        <div class="flex items-center gap-4">
-                            <button onclick="setView('landing')" class="text-slate-400 hover:text-white transition"><i data-lucide="arrow-left" class="w-6 h-6"></i></button>
-                            <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="chef-hat" class="text-orange-500"></i> KDS</h1>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full ${state.isDemoMode ? 'bg-orange-500' : 'bg-green-500 pulse-status'}"></span>
-                            <span class="text-xs font-mono text-slate-400 font-bold">${state.isDemoMode ? 'DEMO' : 'LIVE'}</span>
-                        </div>
+                    <div class="bg-slate-900 text-white p-4 flex justify-between items-center shadow-md">
+                        <div class="flex items-center gap-4"><button onclick="setView('landing')"><i data-lucide="arrow-left" class="w-6 h-6"></i></button><h1 class="text-xl font-bold">KDS</h1></div>
                     </div>
-                    
-                    <div id="kds-container" class="flex-1 overflow-x-auto p-4">
-                        <div class="flex gap-4 min-w-[1000px]">
-                            <!-- Pending -->
-                            <div class="flex-1 min-w-[320px]">
-                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
-                                    <span>Pending</span> 
-                                    <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold">${pendingOrders.length}</span>
-                                </h2>
-                                ${pendingOrders.map(o => renderCard(o, 'pending')).join('') || '<div class="text-center text-slate-400 italic py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">No pending orders</div>'}
-                            </div>
-                            
-                            <!-- Preparing -->
-                            <div class="flex-1 min-w-[320px]">
-                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
-                                    <span>Preparing</span> 
-                                    <span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs font-bold">${cookingOrders.length}</span>
-                                </h2>
-                                ${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}
-                            </div>
-
-                            <!-- Done -->
-                            <div class="flex-1 min-w-[320px]">
-                                <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
-                                    <span>Ready / Served</span> 
-                                    <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-bold">${readyOrders.length}</span>
-                                </h2>
-                                ${readyOrders.map(o => renderCard(o, 'ready')).join('')}
-                            </div>
-                        </div>
-                    </div>
+                    <div id="kds-container" class="flex-1 overflow-x-auto p-4"><div class="flex gap-4 min-w-[1000px]">
+                        <div class="flex-1"><h2 class="font-bold text-slate-700 mb-4 bg-slate-200 p-2 rounded">PENDING (${pendingOrders.length})</h2>${pendingOrders.map(o => renderCard(o, 'pending')).join('')}</div>
+                        <div class="flex-1"><h2 class="font-bold text-slate-700 mb-4 bg-slate-200 p-2 rounded">COOKING (${cookingOrders.length})</h2>${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}</div>
+                        <div class="flex-1"><h2 class="font-bold text-slate-700 mb-4 bg-slate-200 p-2 rounded">READY (${readyOrders.length})</h2>${readyOrders.map(o => renderCard(o, 'ready')).join('')}</div>
+                    </div></div>
                 </div>
             `;
         }
@@ -1736,5 +1135,4 @@ html, body {
     </script>
 </body>
 </html>
-
 
