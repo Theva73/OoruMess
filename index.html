@@ -315,6 +315,55 @@ html, body {
   z-index: 1;
 }
 
+
+/* ===== FIX: Button labels visible + no wrap (portrait & landscape) ===== */
+.landing-btn,
+.glass-btn{
+  color: #fff !important;
+  opacity: 1 !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.28);
+  -webkit-text-fill-color: #fff !important; /* iOS/Safari safety */
+  white-space: nowrap; /* prevent wrapping */
+}
+
+.landing-btn *,
+.glass-btn *{
+  color: #fff !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #fff !important;
+  position: relative;
+  z-index: 3; /* keep text above glass overlays */
+}
+
+.landing-btn::before,
+.landing-btn::after,
+.glass-btn::before,
+.glass-btn::after{
+  z-index: 1 !important; /* overlays behind text */
+  opacity: .55;          /* keep premium sheen but not washing text */
+}
+
+/* Extra contrast for very light glass */
+.landing-btn,
+.glass-btn{
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+
+/* Landscape: make buttons longer so text never wraps */
+@media (orientation: landscape) and (max-height: 520px){
+  .landing-actions{
+    width: min(460px, 36vw) !important; /* wider column */
+    margin-right: clamp(6px, 2vw, 18px) !important;
+  }
+  .landing-btn,
+  .glass-btn{
+    min-height: 56px;
+    padding: 14px 18px !important;
+  }
+}
+/* ===== END FIX ===== */
+
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -1687,4 +1736,5 @@ html, body {
     </script>
 </body>
 </html>
+
 
