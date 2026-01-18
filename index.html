@@ -104,7 +104,57 @@
         }
         /* ===== End Logo-only Landing ===== */
 
-    </style>
+    
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/* ===== Fullscreen Premium Landing Background ===== */
+.landing-screen{
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #f6f1e6;
+}
+
+.landing-bg{
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at center,
+      #ffffff 0%,
+      #f3eadb 45%,
+      #efe3cf 70%,
+      #ead9bf 100%
+    );
+  z-index: 0;
+}
+
+.landing-logo-wrap{
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: calc(clamp(48px, 10vh, 120px) + env(safe-area-inset-top));
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.landing-logo-wrap img{
+  max-width: min(92vw, 720px);
+  max-height: 60vh;
+  object-fit: contain;
+  display: block;
+}
+/* ===== End Fullscreen Landing ===== */
+
+</style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
@@ -819,53 +869,18 @@
         }
 
         
+        
         function renderLanding(container) {
-            let loginModal = '';
-            if (state.isAdminLoginOpen) {
-                loginModal = `
-                <div class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm p-4">
-                    <div class="bg-white w-full max-w-xs rounded-2xl shadow-2xl animate-slide-up p-6 text-center relative overflow-hidden">
-                        <button onclick="closeAdminLogin()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
-                        
-                        <div class="mb-6 mt-2">
-                            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <i data-lucide="lock" class="w-8 h-8 text-gray-600"></i>
-                            </div>
-                            <h2 class="text-xl font-bold text-gray-800">Admin Access</h2>
-                            <p class="text-xs text-gray-500">Please enter your PIN to continue</p>
-                        </div>
-
-                        <form onsubmit="handleAdminLogin(event)" class="space-y-4">
-                            <div id="pinContainer">
-                                <input type="password" id="adminPinInput" placeholder="••••" maxlength="4" class="w-full text-center text-3xl font-bold tracking-[1em] p-3 border rounded-xl outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all placeholder-gray-300" autofocus>
-                            </div>
-                            
-                            ${state.adminLoginError ? `<p class="text-xs text-red-500 font-bold animate-pulse">${state.adminLoginError}</p>` : ''}
-                            
-                            <button type="submit" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition shadow-lg">
-                                Unlock
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                `;
-            }
-
             container.innerHTML = `
-                <div class="landing-logo-page">
-                    <div class="landing-tap-layer" onclick="setView('customer')" title="Tap to start"></div>
-                    <button class="landing-admin-hotspot" onclick="setView('admin')" title="Admin Settings"></button>
-                    <img src="oorumess.png" alt="Ooru Mess" class="landing-logo-img" />
-
-                    ${state.isDemoMode ? '<div class="absolute top-6 left-6 bg-orange-900/80 text-white px-3 py-1 rounded-full text-xs font-bold border border-orange-400/50 pointer-events-none z-10">DEMO MODE</div>' : ''}
-                    ${loginModal}
+                <div class="landing-screen">
+                  <div class="landing-bg"></div>
+                  <div class="landing-logo-wrap" onclick="setView('customer')">
+                    <img src="oorumess.png" alt="Ooru Mess Logo">
+                  </div>
                 </div>
             `;
-            
-            if (state.isAdminLoginOpen) {
-                setTimeout(() => document.getElementById('adminPinInput')?.focus(), 100);
-            }
         }
+
 
 
         function renderAdmin(container) {
