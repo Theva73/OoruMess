@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ooru Mess | Digital Ordering v4</title>
+    <title>Ooru Mess | Digital Ordering v5</title>
     
     <!-- ICON CONFIGURATION -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
@@ -355,9 +355,11 @@
             duitNowBaseString: '',
             testQRString: null,
             processingAction: null,
-            successModal: false,   // NEW: For custom success popup
-            successTitle: '',      // NEW: Dynamic title
-            successMessage: ''     // NEW: Dynamic message
+            successModal: false,
+            successTitle: '',
+            successMessage: '',
+            paymentSectionUnlocked: false, // NEW: Lock state for payment config
+            showPaymentString: false       // NEW: Toggle to show/hide masked string
         };
 
         // --- Initialization ---
@@ -502,6 +504,33 @@
             render();
         };
 
+        // --- Payment Lock Actions ---
+        window.unlockPaymentSettings = () => {
+            const pinInput = document.getElementById('paymentUnlockPin');
+            if (pinInput && pinInput.value === '1234') { // Reuse Admin PIN
+                state.paymentSectionUnlocked = true;
+                render();
+            } else {
+                alert("Incorrect PIN");
+                if(pinInput) pinInput.value = '';
+            }
+        };
+
+        window.lockPaymentSettings = () => {
+            state.paymentSectionUnlocked = false;
+            state.showPaymentString = false;
+            render();
+        };
+
+        window.togglePaymentStringVisibility = () => {
+            state.showPaymentString = !state.showPaymentString;
+            render();
+            // Focus back on input if visible
+            if (state.showPaymentString) {
+                setTimeout(() => document.getElementById('duitNowInput')?.focus(), 50);
+            }
+        };
+
         window.saveDuitNowString = async () => {
             const val = document.getElementById('duitNowInput').value.trim();
             if (!val) return;
@@ -511,6 +540,10 @@
                     duitNowString: val
                 }, { merge: true });
                 alert("DuitNow settings saved! QR codes will now be dynamic.");
+                // Optional: Auto-lock after save
+                state.paymentSectionUnlocked = false;
+                state.showPaymentString = false;
+                render();
             } catch (e) {
                 console.error(e);
                 alert("Error saving settings.");
@@ -881,9 +914,6 @@
                 state.successMessage = msg;
                 state.successModal = true;
                 
-                // IMPORTANT: We set successModal=true, then render. 
-                // Since resetCart also triggered render(), we just need one final render 
-                // to show the clean state WITH the modal on top.
                 render();
 
             } catch (e) {
@@ -1140,6 +1170,59 @@
                 </div>
             ` : '';
 
+            // --- Payment Section Logic (Secure) ---
+            let paymentSectionContent = '';
+            
+            if (!state.paymentSectionUnlocked) {
+                // LOCKED STATE
+                paymentSectionContent = `
+                    <div class="bg-gray-100 p-6 rounded-lg border border-gray-200 text-center">
+                        <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="lock" class="w-6 h-6 text-gray-500"></i>
+                        </div>
+                        <h3 class="font-bold text-gray-700 mb-2">Secure Payment Configuration</h3>
+                        <p class="text-xs text-gray-500 mb-4">Enter Admin PIN to unlock</p>
+                        
+                        <div class="flex gap-2 justify-center max-w-xs mx-auto">
+                            <input type="password" id="paymentUnlockPin" maxlength="4" placeholder="PIN" class="w-24 text-center p-2 border rounded-lg font-bold outline-none focus:ring-2 focus:ring-gray-500">
+                            <button onclick="unlockPaymentSettings()" class="bg-gray-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-black">Unlock</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // UNLOCKED STATE
+                paymentSectionContent = `
+                    <div class="relative animate-fade-in">
+                        <button onclick="lockPaymentSettings()" class="absolute -top-1 -right-1 p-2 text-gray-400 hover:text-gray-600" title="Lock Settings">
+                            <i data-lucide="lock-open" class="w-5 h-5"></i>
+                        </button>
+                        
+                        <p class="text-sm text-gray-600 mb-4 pr-8">
+                            <b>Dynamic QR Config:</b> To enable auto-filled amount, paste your raw DuitNow string here.
+                        </p>
+                        <div class="flex gap-2 mb-4">
+                            <div class="relative flex-1">
+                                <input type="${state.showPaymentString ? 'text' : 'password'}" id="duitNowInput" value="${state.duitNowBaseString}" placeholder="000201010211..." class="w-full p-3 pr-10 border rounded-lg outline-none focus:ring-2 focus:ring-pink-500 font-mono text-xs">
+                                <button onclick="togglePaymentStringVisibility()" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
+                                    <i data-lucide="${state.showPaymentString ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                            <button onclick="saveDuitNowString()" class="bg-pink-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-pink-700 shadow-lg shadow-pink-100">Save</button>
+                        </div>
+                        
+                        <div class="border-t pt-4">
+                            <h3 class="font-bold text-gray-800 mb-2 text-sm">Test QR Generation</h3>
+                            <div class="flex gap-4 items-start">
+                                <button onclick="testDuitNowQR()" class="bg-gray-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-900 text-sm">Generate Test QR (RM 1.00)</button>
+                                <div id="testQROutput" class="bg-white p-2 border rounded shadow-inner min-w-[100px] min-h-[100px] flex items-center justify-center text-xs text-gray-400">
+                                    ${state.testQRString ? '' : 'QR will appear here'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             container.innerHTML = `
                 <div class="min-h-screen bg-gray-50 pb-20">
                     <div class="bg-slate-900 text-white p-4 sticky top-0 z-20 flex items-center justify-between shadow-md">
@@ -1167,27 +1250,10 @@
                             </a>
                         </div>
                         
-                        <!-- DuitNow Configuration with Test Button -->
+                        <!-- Payment Configuration (SECURE) -->
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-pink-500">
                             <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="qr-code" class="w-5 h-5 text-pink-600"></i> Payment Configuration</h2>
-                            <p class="text-sm text-gray-600 mb-4">
-                                To enable <b>Dynamic QR</b> (auto-filled amount), scan your DuitNow QR using a text scanner app and paste the text content here.
-                            </p>
-                            <div class="flex gap-2 mb-4">
-                                <input type="text" id="duitNowInput" value="${state.duitNowBaseString}" placeholder="000201010211... (Paste long string here)" class="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-pink-500 font-mono text-xs">
-                                <button onclick="saveDuitNowString()" class="bg-pink-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-pink-700 shadow-lg shadow-pink-100">Save</button>
-                            </div>
-                            
-                            <div class="border-t pt-4">
-                                <h3 class="font-bold text-gray-800 mb-2 text-sm">Test QR Generation</h3>
-                                <div class="flex gap-4 items-start">
-                                    <button onclick="testDuitNowQR()" class="bg-gray-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-900 text-sm">Generate Test QR (RM 1.00)</button>
-                                    <div id="testQROutput" class="bg-white p-2 border rounded shadow-inner min-w-[100px] min-h-[100px] flex items-center justify-center text-xs text-gray-400">
-                                        ${state.testQRString ? '' : 'QR will appear here'}
-                                    </div>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-2 italic">Scan this test QR with your bank app. It should ask for RM 1.00.</p>
-                            </div>
+                            ${paymentSectionContent}
                         </div>
 
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -1232,12 +1298,17 @@
                 </div>
             `;
             
-            if (state.testQRString) {
+            // Re-render Test QR if state exists
+            if (state.testQRString && state.paymentSectionUnlocked) {
                 setTimeout(() => {
                     const container = document.getElementById('testQROutput');
                     if (container && container.innerHTML.includes('QR will appear here')) {
                          container.innerHTML = '';
-                        new QRCode(container, { text: state.testQRString, width: 150, height: 150 });
+                        new QRCode(container, {
+                            text: state.testQRString,
+                            width: 150,
+                            height: 150
+                        });
                     }
                 }, 100);
             }
@@ -1250,6 +1321,7 @@
 
             const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+            
             const visibleItems = state.menuItems.filter(item => item.category === state.activeCategory);
 
             const itemsHtml = visibleItems.map(item => {
@@ -1282,16 +1354,18 @@
                 </div>`;
             }).join('');
 
-            const tabsHtml = state.categories.sort((a,b) => a.order - b.order).map(cat => `
-                <button onclick="setCategory('${cat.name}')" 
-                    class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all transform active:scale-95 ${
-                        state.activeCategory === cat.name
-                        ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
-                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                    }">
-                    ${cat.name}
-                </button>
-            `).join('');
+            const tabsHtml = state.categories
+                .sort((a,b) => a.order - b.order)
+                .map(cat => `
+                    <button onclick="setCategory('${cat.name}')" 
+                        class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all transform active:scale-95 ${
+                            state.activeCategory === cat.name
+                            ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
+                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                        }">
+                        ${cat.name}
+                    </button>
+                `).join('');
 
             let modalHtml = '';
             if (state.isCheckoutOpen) {
@@ -1390,7 +1464,12 @@
 
                 let tabSummaryHtml = '';
                 if (state.tabTotal > 0) {
-                    const openOrders = state.orders.filter(o => o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later' && o.status !== 'cancelled');
+                    const openOrders = state.orders.filter(o => 
+                        o.tableNumber === state.tableNumber && 
+                        o.paymentStatus === 'pay_later' &&
+                        o.status !== 'cancelled'
+                    );
+                    
                     const aggregated = {};
                     openOrders.forEach(o => {
                         if (o.items) {
@@ -1539,7 +1618,7 @@
                 </div>`;
             }
 
-            // --- SUCCESS MODAL (Replaces Alerts) ---
+            // --- SUCCESS MODAL ---
             let successModalHtml = '';
             if (state.successModal) {
                 successModalHtml = `
