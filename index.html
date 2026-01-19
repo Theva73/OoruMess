@@ -232,6 +232,9 @@
         function generateDuitNowString(baseString, amount) {
             if (!baseString) return null;
             
+            // Clean input
+            baseString = baseString.trim();
+
             // 1. Parse the base string into a map of objects
             let objects = {};
             let i = 0;
@@ -248,15 +251,26 @@
                 return null;
             }
             
-            // 2. Add/Update Transaction Amount (Tag 54)
+            // 2. CRITICAL FIX: Force Point of Initiation (Tag 01) to Dynamic (12)
+            // Even if the base string says "11" (Static), we must change it to "12" 
+            // so the banking app knows to read the amount field.
+            objects['01'] = '12';
+
+            // 3. Add/Update Transaction Amount (Tag 54)
             objects['54'] = parseFloat(amount).toFixed(2);
             
-            // Optional: You could update Point of Initiation (01) to '12' (Dynamic)
-            // But '11' (Static) with an amount appended usually works fine for DuitNow 
-            // and is safer if the base string was generated as static.
+            // 4. Ensure Currency (Tag 53) is set to MYR (458)
+            if (!objects['53']) {
+                objects['53'] = '458';
+            }
             
-            // 3. Reconstruct string (Sort keys to be safe, though EMVCo just requires 00 first, 63 last)
-            // We filter out 63 (CRC) because we will calculate a new one
+            // 5. Ensure Country Code (Tag 58) is set to MY
+             if (!objects['58']) {
+                objects['58'] = 'MY';
+            }
+
+            // 6. Reconstruct string (Sort keys to be safe, EMVCo standard)
+            // Filter out 63 (CRC) because we will calculate a new one
             const keys = Object.keys(objects).filter(k => k !== '63').sort();
             
             let newString = '';
@@ -266,10 +280,10 @@
                 newString += k + len + val;
             }
             
-            // 4. Append CRC ID and Length
+            // 7. Append CRC ID and Length
             newString += '6304';
             
-            // 5. Calculate and append CRC Value
+            // 8. Calculate and append CRC Value
             const crc = generateCRC16(newString);
             newString += crc;
             
@@ -347,7 +361,8 @@
             adminExpandedCategories: {},
             tabTotal: 0,
             checkoutMode: 'cart',
-            duitNowBaseString: '' // Store the raw QR string here
+            duitNowBaseString: '',
+            testQRString: null
         };
 
         // --- Initialization ---
@@ -433,6 +448,7 @@
                 if (docSnap.exists()) {
                     state.duitNowBaseString = docSnap.data().duitNowString || '';
                 }
+                render(); // Re-render to show value in admin panel
             });
 
             onSnapshot(query(collection(db, basePath, "orders"), orderBy("timestamp", "desc")), (snap) => {
@@ -517,6 +533,34 @@
                 console.error(e);
                 alert("Error saving settings.");
             }
+        };
+        
+        window.testDuitNowQR = () => {
+            const val = document.getElementById('duitNowInput').value.trim();
+            if (!val) {
+                alert("Please paste a string first.");
+                return;
+            }
+            const testAmount = 1.00;
+            const dynamicString = generateDuitNowString(val, testAmount);
+            if (!dynamicString) {
+                alert("Failed to generate QR. Check string format.");
+                return;
+            }
+            state.testQRString = dynamicString;
+            render(); // This will trigger the renderAdmin to show the QR
+            
+            setTimeout(() => {
+                const container = document.getElementById('testQROutput');
+                if (container) {
+                    container.innerHTML = '';
+                    new QRCode(container, {
+                        text: dynamicString,
+                        width: 150,
+                        height: 150
+                    });
+                }
+            }, 100);
         };
 
         window.setCategory = (cat) => {
@@ -1139,15 +1183,26 @@
                             </a>
                         </div>
                         
-                        <!-- NEW: DuitNow Configuration -->
+                        <!-- NEW: DuitNow Configuration with Test Button -->
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-pink-500">
                             <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="qr-code" class="w-5 h-5 text-pink-600"></i> Payment Configuration</h2>
                             <p class="text-sm text-gray-600 mb-4">
                                 To enable <b>Dynamic QR</b> (auto-filled amount), scan your DuitNow QR using a text scanner app and paste the text content here.
                             </p>
-                            <div class="flex gap-2">
+                            <div class="flex gap-2 mb-4">
                                 <input type="text" id="duitNowInput" value="${state.duitNowBaseString}" placeholder="000201010211... (Paste long string here)" class="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-pink-500 font-mono text-xs">
                                 <button onclick="saveDuitNowString()" class="bg-pink-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-pink-700 shadow-lg shadow-pink-100">Save</button>
+                            </div>
+                            
+                            <div class="border-t pt-4">
+                                <h3 class="font-bold text-gray-800 mb-2 text-sm">Test QR Generation</h3>
+                                <div class="flex gap-4 items-start">
+                                    <button onclick="testDuitNowQR()" class="bg-gray-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-900 text-sm">Generate Test QR (RM 1.00)</button>
+                                    <div id="testQROutput" class="bg-white p-2 border rounded shadow-inner min-w-[100px] min-h-[100px] flex items-center justify-center text-xs text-gray-400">
+                                        ${state.testQRString ? '' : 'QR will appear here'}
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2 italic">Scan this test QR with your bank app. It should ask for RM 1.00.</p>
                             </div>
                         </div>
 
@@ -1192,6 +1247,21 @@
                     </div>
                 </div>
             `;
+            
+            // Re-render Test QR if state exists (prevents disappearing on re-render)
+            if (state.testQRString) {
+                setTimeout(() => {
+                    const container = document.getElementById('testQROutput');
+                    if (container && container.innerHTML.includes('QR will appear here')) {
+                         container.innerHTML = '';
+                        new QRCode(container, {
+                            text: state.testQRString,
+                            width: 150,
+                            height: 150
+                        });
+                    }
+                }, 100);
+            }
         }
 
         function renderCustomer(container) {
