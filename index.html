@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ooru Mess | Digital Ordering v3</title>
+    <title>Ooru Mess | Digital Ordering v4</title>
     
     <!-- ICON CONFIGURATION -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
@@ -49,6 +49,12 @@
             to { opacity: 1; }
         }
         .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .animate-scale-in { animation: scaleIn 0.2s ease-out forwards; }
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -348,7 +354,10 @@
             checkoutMode: 'cart',
             duitNowBaseString: '',
             testQRString: null,
-            processingAction: null // NEW: Tracks active loading state
+            processingAction: null,
+            successModal: false,   // NEW: For custom success popup
+            successTitle: '',      // NEW: Dynamic title
+            successMessage: ''     // NEW: Dynamic message
         };
 
         // --- Initialization ---
@@ -564,6 +573,13 @@
         window.toggleConfirmation = (isOpen) => {
             state.isConfirmationOpen = isOpen;
             if (isOpen) { state.isCheckoutOpen = false; } else { state.isCheckoutOpen = true; }
+            render();
+        };
+
+        window.closeSuccessModal = () => {
+            state.successModal = false;
+            state.successTitle = '';
+            state.successMessage = '';
             render();
         };
 
@@ -800,7 +816,12 @@
 
             try {
                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const grandTotal = cartTotal + state.tabTotal;
                 
+                // --- CUSTOM MESSAGE LOGIC ---
+                let title = "Success";
+                let msg = "Operation complete.";
+
                 if (method === 'settle_tab_cash' || method === 'settle_tab_qr') {
                     const realMethod = method === 'settle_tab_cash' ? 'cash' : 'qr';
                     if (state.cart.length > 0) {
@@ -828,31 +849,48 @@
                             }
                         });
                     }
-                    alert(`Full Bill Settled! Table ${state.tableNumber} is now clear.`);
+                    
+                    title = "Bill Settled!";
+                    msg = `Table ${state.tableNumber} is now clear. Thank you!`;
+                    
                     resetCart();
                 } else if (method === 'pay_later') {
                     await createOrder('pay_later', 'pay_later', cartTotal);
-                    alert(`Order added to Tab for Table ${state.tableNumber}. Kitchen notified!`);
+                    
+                    title = "Added to Tab";
+                    msg = `Order sent to kitchen for Table ${state.tableNumber}.`;
+                    
                     resetCart();
                 } else {
                     await createOrder(method === 'qr' ? 'paid' : 'unpaid', method, cartTotal); 
+                    
                     if (method === 'cash') {
-                        alert(`Order Placed! Please pay RM ${cartTotal.toFixed(2)} at the counter.`);
+                        title = "Order Placed!";
+                        msg = `Please pay RM ${cartTotal.toFixed(2)} at the counter.`;
                     } else {
-                        alert(`Payment Received! Kitchen Notified.`);
+                        title = "Payment Received!";
+                        msg = "Kitchen has been notified. Thank you!";
                     }
+                    
                     resetCart();
                 }
+
+                // --- STOP LOADING & SHOW SUCCESS MODAL ---
+                state.processingAction = null;
+                state.successTitle = title;
+                state.successMessage = msg;
+                state.successModal = true;
+                
+                // IMPORTANT: We set successModal=true, then render. 
+                // Since resetCart also triggered render(), we just need one final render 
+                // to show the clean state WITH the modal on top.
+                render();
+
             } catch (e) {
                 console.error("Payment Error:", e);
-                alert("Processing Error: " + e.message + ". Please try again.");
-            } finally {
-                // Clear loading state
                 state.processingAction = null;
-                // Only re-render if we haven't reset the cart (which does its own render)
-                // If resetCart() was called, the modal is closed anyway.
-                // If error occurred, this render ensures the buttons are re-enabled.
-                if (state.cart.length > 0 || state.tabTotal > 0) render();
+                alert("Processing Error: " + e.message + ". Please try again.");
+                render();
             }
         };
 
@@ -888,7 +926,8 @@
             state.isPaymentOpen = false;
             state.tabTotal = 0;
             state.checkoutMode = 'cart';
-            render();
+            // Note: We do NOT call render() here anymore because confirmPayment calls it 
+            // at the very end to ensure the modal state is picked up correctly.
         }
 
         window.updateOrderStatus = async (orderId, newStatus) => {
@@ -1487,7 +1526,7 @@
                 }
             }
 
-            // --- GLOBAL LOADING OVERLAY ---
+            // --- LOADING OVERLAY ---
             let loadingOverlay = '';
             if (state.processingAction) {
                 loadingOverlay = `
@@ -1496,6 +1535,24 @@
                         <div class="w-12 h-12 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mb-4"></div>
                         <h3 class="font-bold text-gray-800 text-lg">Processing...</h3>
                         <p class="text-xs text-gray-500 text-center">Please wait while we verify your order.</p>
+                    </div>
+                </div>`;
+            }
+
+            // --- SUCCESS MODAL (Replaces Alerts) ---
+            let successModalHtml = '';
+            if (state.successModal) {
+                successModalHtml = `
+                <div class="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center backdrop-blur-sm animate-fade-in">
+                    <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center animate-scale-in">
+                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i data-lucide="check" class="w-10 h-10 text-green-600 font-bold"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-900 mb-2">${state.successTitle}</h3>
+                        <p class="text-gray-500 mb-8">${state.successMessage}</p>
+                        <button onclick="closeSuccessModal()" class="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-green-700 transition transform active:scale-95">
+                            OK, Got it
+                        </button>
                     </div>
                 </div>`;
             }
@@ -1549,6 +1606,7 @@
                     ${confirmationModalHtml}
                     ${paymentModalHtml}
                     ${loadingOverlay}
+                    ${successModalHtml}
                 </div>
             `;
         }
