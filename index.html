@@ -15,6 +15,9 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- QR Code Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
@@ -182,6 +185,11 @@
     margin-right: auto;
 }
 
+#qrcode img {
+    margin: 0 auto;
+    display: block;
+}
+
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -192,7 +200,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, setDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // --- Configuration ---
         const firebaseConfig = {
@@ -204,6 +212,69 @@
             appId: "1:416498252793:web:76d610bdb967953fb75b28",
             measurementId: "G-D7SXMP1YS2"
         };
+
+        // --- DuitNow Logic ---
+        
+        // CRC16 Checksum Calculator (CCITT-FALSE / standard for EMVCo)
+        function generateCRC16(str) {
+            let crc = 0xFFFF;
+            for (let c = 0; c < str.length; c++) {
+                crc ^= str.charCodeAt(c) << 8;
+                for (let i = 0; i < 8; i++) {
+                    if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
+                    else crc = crc << 1;
+                }
+            }
+            return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+        }
+
+        // Generate Dynamic DuitNow String
+        function generateDuitNowString(baseString, amount) {
+            if (!baseString) return null;
+            
+            // 1. Parse the base string into a map of objects
+            let objects = {};
+            let i = 0;
+            try {
+                while (i < baseString.length) {
+                    let id = baseString.substr(i, 2);
+                    let len = parseInt(baseString.substr(i + 2, 2));
+                    let val = baseString.substr(i + 4, len);
+                    objects[id] = val;
+                    i += 4 + len;
+                }
+            } catch (e) {
+                console.error("Error parsing base QR string:", e);
+                return null;
+            }
+            
+            // 2. Add/Update Transaction Amount (Tag 54)
+            objects['54'] = parseFloat(amount).toFixed(2);
+            
+            // Optional: You could update Point of Initiation (01) to '12' (Dynamic)
+            // But '11' (Static) with an amount appended usually works fine for DuitNow 
+            // and is safer if the base string was generated as static.
+            
+            // 3. Reconstruct string (Sort keys to be safe, though EMVCo just requires 00 first, 63 last)
+            // We filter out 63 (CRC) because we will calculate a new one
+            const keys = Object.keys(objects).filter(k => k !== '63').sort();
+            
+            let newString = '';
+            for (let k of keys) {
+                let val = objects[k];
+                let len = val.length.toString().padStart(2, '0');
+                newString += k + len + val;
+            }
+            
+            // 4. Append CRC ID and Length
+            newString += '6304';
+            
+            // 5. Calculate and append CRC Value
+            const crc = generateCRC16(newString);
+            newString += crc;
+            
+            return newString;
+        }
 
         // --- Default Data for Seeding ---
         const DEFAULT_CATEGORIES = [
@@ -275,7 +346,8 @@
             adminLoginError: '', 
             adminExpandedCategories: {},
             tabTotal: 0,
-            checkoutMode: 'cart'
+            checkoutMode: 'cart',
+            duitNowBaseString: '' // Store the raw QR string here
         };
 
         // --- Initialization ---
@@ -331,8 +403,6 @@
 
             onSnapshot(query(collection(db, basePath, "categories"), orderBy("order")), (snap) => {
                 const rawCategories = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                
-                // DEDUPLICATE CATEGORIES BY NAME
                 const uniqueCategories = [];
                 const seenNames = new Set();
                 rawCategories.forEach(cat => {
@@ -358,13 +428,16 @@
                 render();
             });
 
-            // Listen for orders to update Kitchen View AND to calculate Tabs
+            // Listen for Payment Settings (DuitNow String)
+            onSnapshot(doc(db, basePath, "settings", "payment"), (docSnap) => {
+                if (docSnap.exists()) {
+                    state.duitNowBaseString = docSnap.data().duitNowString || '';
+                }
+            });
+
             onSnapshot(query(collection(db, basePath, "orders"), orderBy("timestamp", "desc")), (snap) => {
                 state.orders = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                // Only render if kitchen view to avoid input disruption in customer view
                 if (state.view === 'kitchen') render();
-                
-                // PROACTIVE UPDATE: If checkout is open and table number is set, update tab info
                 if (state.isCheckoutOpen && state.tableNumber) {
                      setTableNumber(state.tableNumber);
                 }
@@ -430,6 +503,22 @@
             render();
         };
 
+        window.saveDuitNowString = async () => {
+            const val = document.getElementById('duitNowInput').value.trim();
+            if (!val) return;
+            
+            try {
+                const basePath = "artifacts/ooru-mess-github/public/data";
+                await setDoc(doc(db, basePath, "settings", "payment"), {
+                    duitNowString: val
+                }, { merge: true });
+                alert("DuitNow settings saved! QR codes will now be dynamic.");
+            } catch (e) {
+                console.error(e);
+                alert("Error saving settings.");
+            }
+        };
+
         window.setCategory = (cat) => {
             state.activeCategory = cat;
             render();
@@ -456,14 +545,11 @@
             render();
         };
 
-        // FIX: Proactively check tab when opening checkout
         window.toggleCheckout = (isOpen, mode = null) => {
             state.isCheckoutOpen = isOpen;
             if (isOpen) state.checkoutMode = mode || state.checkoutMode || 'cart';
             render();
-            // After render, if we have a table number, trigger check immediately
             if (isOpen && state.tableNumber) {
-                // Small delay to ensure DOM is ready
                 setTimeout(() => setTableNumber(state.tableNumber), 50);
             }
         };
@@ -493,8 +579,6 @@
             return openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
         }
 
-
-        // NEW: Aggregate all pending (unpaid tab) bills across ALL tables
         function getAllPendingTabs() {
             const open = state.orders.filter(o =>
                 o.paymentStatus === 'pay_later' &&
@@ -513,11 +597,9 @@
             return Object.values(byTable).sort((a, b) => Number(a.table) - Number(b.table));
         }
 
-        // Enhanced DOM-based update to SHOW BILL DETAILS and BILL COUNT
         window.setTableNumber = (num) => {
             state.tableNumber = num;
             
-            // Get Open Orders
             const openOrders = state.orders.filter(o => 
                 o.tableNumber === num && 
                 o.paymentStatus === 'pay_later' &&
@@ -527,16 +609,13 @@
             state.tabTotal = openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
             const pendingBillCount = openOrders.length; 
 
-            // 1. Update Button State
             const btn = document.getElementById('confirmBtn');
             const hasCartItems = state.cart.length > 0;
             const hasTab = state.tabTotal > 0;
             
             if (btn) {
                 const canProceed = num && (hasCartItems || hasTab);
-                
                 btn.disabled = !canProceed;
-                
                 if (canProceed) {
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 } else {
@@ -559,18 +638,15 @@
                 }
             }
             
-            // 2. Hide "Empty Cart" message if Tab exists
             const emptyMsg = document.getElementById('emptyCartMsg');
             if (emptyMsg) {
                 if (hasTab && !hasCartItems) emptyMsg.classList.add('hidden');
                 else if (!hasTab && !hasCartItems) emptyMsg.classList.remove('hidden');
             }
 
-            // 3. Update Tab Info Section (No Re-render)
             const tabContainer = document.getElementById('tabInfoContainer');
             if (tabContainer) {
                 if (hasTab) {
-                    // Aggregate items for display
                     const aggregated = {};
                     openOrders.forEach(o => {
                         if (o.items) {
@@ -621,12 +697,9 @@
             }
         };
 
-        // NEW: Quickly load a pending bill table from the list inside the Check Bill card
         window.selectPendingTable = (tableNum) => {
             state.tableNumber = String(tableNum);
-            // Re-render so the input reflects the table number
             render();
-            // After render, run the same bill-check logic to populate tab details
             setTimeout(() => {
                 const input = document.getElementById('tableNumberInput');
                 if (input) input.value = String(tableNum);
@@ -647,7 +720,6 @@
             e.preventDefault();
             const name = document.getElementById('newCatName').value;
             if(!name) return;
-            
             const basePath = "artifacts/ooru-mess-github/public/data";
             await addDoc(collection(db, basePath, "categories"), {
                 name: name,
@@ -662,14 +734,9 @@
             const variant = document.getElementById('itemVariant').value;
             const price = parseFloat(document.getElementById('itemPrice').value);
             const category = document.getElementById('itemCategory').value;
-
             if(!name || !price || !category) return;
-
             const basePath = "artifacts/ooru-mess-github/public/data";
-            await addDoc(collection(db, basePath, "menu"), {
-                name, variant, price, category
-            });
-            
+            await addDoc(collection(db, basePath, "menu"), { name, variant, price, category });
             document.getElementById('itemName').value = '';
             document.getElementById('itemVariant').value = '';
             document.getElementById('itemPrice').value = '';
@@ -693,12 +760,10 @@
              if (!state.tableNumber) return;
              if (state.cart.length === 0 && state.tabTotal === 0) return;
              
-             // If ordering new items, go to confirmation first
              if (state.cart.length > 0) {
                  state.isCheckoutOpen = false;
                  state.isConfirmationOpen = true;
              } else {
-                 // Just settling tab, skip confirmation, go straight to payment
                  state.isCheckoutOpen = false;
                  state.isPaymentOpen = true;
                  state.paymentStep = 'selection';
@@ -716,6 +781,33 @@
         window.showLargeQR = () => {
             state.paymentStep = 'qr_fullscreen';
             render();
+            // Wait for DOM update then generate QR
+            setTimeout(() => {
+                const container = document.getElementById('qrcode');
+                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const grandTotal = cartTotal + state.tabTotal;
+                
+                if (container && state.duitNowBaseString) {
+                    container.innerHTML = ''; // Clear previous
+                    const dynamicString = generateDuitNowString(state.duitNowBaseString, grandTotal);
+                    
+                    if (dynamicString) {
+                        new QRCode(container, {
+                            text: dynamicString,
+                            width: 200,
+                            height: 200,
+                            colorDark : "#000000",
+                            colorLight : "#ffffff",
+                            correctLevel : QRCode.CorrectLevel.M
+                        });
+                    } else {
+                        container.innerHTML = '<p class="text-xs text-red-500 text-center">Invalid QR Configuration</p>';
+                    }
+                } else if (container) {
+                    // Fallback if no string configured
+                     container.innerHTML = '<img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="QR Code">';
+                }
+            }, 100);
         }
         
         window.backToSelection = () => {
@@ -826,7 +918,6 @@
             }
         };
 
-
         // --- Render Functions ---
 
         function render() {
@@ -847,13 +938,11 @@
                 return;
             }
 
-            // --- SCROLL FIX START ---
             let kdsScrollLeft = 0;
             if (state.view === 'kitchen') {
                 const scrollContainer = document.getElementById('kds-container');
                 if (scrollContainer) kdsScrollLeft = scrollContainer.scrollLeft;
             }
-            // --- SCROLL FIX END ---
 
             if (state.view === 'landing') renderLanding(appEl);
             else if (state.view === 'customer') renderCustomer(appEl);
@@ -862,7 +951,6 @@
             
             lucide.createIcons();
 
-            // --- SCROLL FIX RESTORE ---
             if (state.view === 'kitchen') {
                 const scrollContainer = document.getElementById('kds-container');
                 if (scrollContainer) {
@@ -895,6 +983,7 @@
                 </div>
             </div>`;
         }
+
         function renderLanding(container) {
             let loginModal = '';
             if (state.isAdminLoginOpen) {
@@ -930,8 +1019,6 @@
             container.innerHTML = `
                 <div class=\"landing-screen p-6\">
                   <div class=\"landing-pattern\"></div>
-
-                  <!-- Settings (Top Right) -->
                   <div class=\"absolute top-4 right-4 z-50\">
                     <button onclick=\"setView('admin')\" class=\"w-12 h-12 rounded-full bg-white/70 backdrop-blur-md shadow-lg border border-white/60 flex items-center justify-center\" title=\"Settings\">
                       <i data-lucide=\"settings\" class=\"w-6 h-6 text-gray-800\"></i>
@@ -963,7 +1050,6 @@
                 setTimeout(() => document.getElementById('adminPinInput')?.focus(), 100);
             }
         }
-
 
         function renderAdmin(container) {
             const categories = state.categories.sort((a,b) => a.order - b.order);
@@ -1052,6 +1138,18 @@
                                 Open Dashboard <i data-lucide="external-link" class="w-4 h-4"></i>
                             </a>
                         </div>
+                        
+                        <!-- NEW: DuitNow Configuration -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-pink-500">
+                            <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="qr-code" class="w-5 h-5 text-pink-600"></i> Payment Configuration</h2>
+                            <p class="text-sm text-gray-600 mb-4">
+                                To enable <b>Dynamic QR</b> (auto-filled amount), scan your DuitNow QR using a text scanner app and paste the text content here.
+                            </p>
+                            <div class="flex gap-2">
+                                <input type="text" id="duitNowInput" value="${state.duitNowBaseString}" placeholder="000201010211... (Paste long string here)" class="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-pink-500 font-mono text-xs">
+                                <button onclick="saveDuitNowString()" class="bg-pink-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-pink-700 shadow-lg shadow-pink-100">Save</button>
+                            </div>
+                        </div>
 
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="layers" class="w-5 h-5 text-blue-600"></i> Manage Categories</h2>
@@ -1108,7 +1206,6 @@
 
             const itemsHtml = visibleItems.map(item => {
                 const inCart = state.cart.find(c => c.id === item.id);
-                // NEW: Compact Button Layout Logic
                 const countBadge = inCart ? `<div class="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-md z-10 animate-bounce-short">${inCart.quantity}</div>` : '';
                 const activeClass = inCart ? 'ring-2 ring-orange-500 bg-orange-50' : 'bg-white hover:shadow-md';
 
@@ -1116,15 +1213,12 @@
                 <div class="relative group">
                     ${countBadge}
                     <div class="item-btn p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-full ${activeClass} cursor-pointer select-none" onclick="${!inCart ? `addToCart('${item.id}')` : ''}">
-                        
                         <div class="mb-2">
                             <h3 class="font-bold text-gray-800 text-sm leading-tight line-clamp-2">${item.name}</h3>
                             ${item.variant ? `<p class="text-[10px] text-gray-500 mt-0.5 font-medium uppercase tracking-wide">${item.variant}</p>` : ''}
                         </div>
-                        
                         <div class="flex justify-between items-end mt-auto">
                             <span class="font-bold text-base text-gray-900">RM ${parseFloat(item.price).toFixed(2)}</span>
-                            
                             ${inCart ? `
                                 <div class="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden" onclick="event.stopPropagation()">
                                     <button onclick="updateQuantity('${item.id}', -1)" class="px-2 py-1 hover:bg-red-50 text-red-600 transition"><i data-lucide="minus" class="w-3 h-3"></i></button>
@@ -1193,7 +1287,6 @@
                                 const tabs = getAllPendingTabs();
                                 if (!tabs.length) return '';
                                 const totalAll = tabs.reduce((s, t) => s + t.total, 0);
-
                                 const rows = tabs.map(t => {
                                     const isActive = state.tableNumber && String(state.tableNumber) === String(t.table);
                                     return `
@@ -1210,7 +1303,6 @@
                                         </button>
                                     `;
                                 }).join('');
-
                                 return `
                                     <div class="mt-4">
                                         <div class="flex items-center justify-between mb-2">
@@ -1250,7 +1342,6 @@
                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                 const grandTotal = cartTotal + state.tabTotal;
 
-                // ADDED: Tab Items in Confirmation
                 let tabSummaryHtml = '';
                 if (state.tabTotal > 0) {
                     const openOrders = state.orders.filter(o => 
@@ -1294,7 +1385,6 @@
                             <h2 class="text-xl font-bold text-gray-900">Review Bill</h2>
                             <p class="text-xs text-gray-500">Table ${state.tableNumber}</p>
                         </div>
-                        
                         <div class="bg-gray-50 rounded-xl p-4 mb-6 max-h-80 overflow-y-auto">
                             ${state.cart.length > 0 ? `<h3 class="font-bold text-orange-600 text-xs uppercase mb-2">Current Order</h3>${cartItemsSummary}` : ''}
                             ${tabSummaryHtml}
@@ -1303,7 +1393,6 @@
                                 <span class="font-bold text-xl text-green-600">RM ${grandTotal.toFixed(2)}</span>
                             </div>
                         </div>
-
                         <div class="space-y-3">
                             <button onclick="proceedToPaymentSelection()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transition flex items-center justify-center gap-2">
                                 Confirm & Pay
@@ -1330,9 +1419,7 @@
                                 <h2 class="text-xl font-bold text-gray-900">Choose Payment</h2>
                                 <button onclick="togglePayment(false)" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-6 h-6"></i></button>
                             </div>
-                            
                             <div class="space-y-4">
-                                <!-- Pay Later / Add to Tab -->
                                 <div class="border rounded-xl p-4 hover:border-blue-500 transition cursor-pointer group bg-blue-50 border-blue-100" onclick="confirmPayment('pay_later')">
                                     <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition">
                                         <i data-lucide="clock" class="w-6 h-6 text-blue-600"></i>
@@ -1340,28 +1427,20 @@
                                     <h3 class="font-bold text-gray-800">Pay Later (Add to Tab)</h3>
                                     <p class="text-xs text-gray-500">Send to kitchen & pay total later</p>
                                 </div>
-
                                 <div class="relative flex py-2 items-center">
                                     <div class="flex-grow border-t border-gray-200"></div>
                                     <span class="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase font-bold">OR Settle Now</span>
                                     <div class="flex-grow border-t border-gray-200"></div>
                                 </div>
-
-                                <!-- Option 1: QR -->
                                 <div class="border rounded-xl p-4 hover:border-orange-500 transition cursor-pointer group" onclick="showLargeQR()">
                                     <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition">
                                         <i data-lucide="qr-code" class="w-6 h-6 text-orange-600"></i>
                                     </div>
                                     <h3 class="font-bold text-gray-800">Scan QR / DuitNow</h3>
                                     <div class="mt-2 bg-gray-50 p-2 rounded border border-dashed border-gray-300">
-                                        <div class="mx-auto w-16 h-16 bg-white flex items-center justify-center border overflow-hidden p-1">
-                                            <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="QR Code">
-                                        </div>
                                         <p class="text-[10px] text-gray-400 mt-1 font-bold">Pay RM ${grandTotal.toFixed(2)}</p>
                                     </div>
                                 </div>
-
-                                <!-- Option 2: Cash -->
                                 <div class="border rounded-xl p-4 hover:border-green-500 transition cursor-pointer group" onclick="${isTabActive ? `confirmPayment('settle_tab_cash')` : `confirmPayment('cash')`}">
                                     <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200 transition">
                                         <i data-lucide="banknote" class="w-6 h-6 text-green-600"></i>
@@ -1387,8 +1466,8 @@
                             <div class="p-8 flex flex-col items-center">
                                 <div class="w-64 h-64 bg-white p-2 rounded-xl shadow-lg border-2 border-orange-100 mb-6 relative group">
                                     <div class="absolute -inset-1 rounded-2xl border-2 border-dashed border-orange-300 animate-pulse"></div>
-                                    <div class="w-full h-full bg-white flex items-center justify-center relative z-10 p-4">
-                                        <img src="https://theva73.github.io/OoruMess/qrcode.png" class="w-full h-full object-contain" alt="DuitNow QR">
+                                    <div id="qrcode" class="w-full h-full bg-white flex items-center justify-center relative z-10 p-2">
+                                        <!-- DYNAMIC QR WILL RENDER HERE -->
                                     </div>
                                 </div>
                                 
@@ -1448,15 +1527,12 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="bg-white sticky top-[58px] z-10 overflow-x-auto hide-scrollbar flex px-4 py-3 border-b gap-2">
                         ${tabsHtml}
                     </div>
-
                     <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                         ${itemsHtml.length ? itemsHtml : `<div class="col-span-full text-center py-10 text-gray-400">No items in this category yet.</div>`}
                     </div>
-
                     ${floatingCart}
                     ${modalHtml}
                     ${confirmationModalHtml}
@@ -1476,7 +1552,6 @@
             };
 
             const todaysOrders = state.orders.filter(o => isToday(o.timestamp));
-
             const pendingOrders = todaysOrders.filter(o => o.status === 'pending');
             const cookingOrders = todaysOrders.filter(o => o.status === 'cooking');
             const readyOrders = todaysOrders.filter(o => ['ready', 'served'].includes(o.status)).slice(0, 5);
@@ -1514,7 +1589,6 @@
                 } else {
                     paymentBadge = `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded border border-yellow-200 font-bold ml-1">CASH</span>`;
                 }
-
 
                 return `
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 ${type==='pending'?'border-blue-500':type==='cooking'?'border-orange-500':'border-green-500'} mb-4 animate-slide-up">
@@ -1561,7 +1635,6 @@
                     
                     <div id="kds-container" class="flex-1 overflow-x-auto p-4">
                         <div class="flex gap-4 min-w-[1000px]">
-                            <!-- Pending -->
                             <div class="flex-1 min-w-[320px]">
                                 <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
                                     <span>Pending</span> 
@@ -1569,8 +1642,6 @@
                                 </h2>
                                 ${pendingOrders.map(o => renderCard(o, 'pending')).join('') || '<div class="text-center text-slate-400 italic py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">No pending orders</div>'}
                             </div>
-                            
-                            <!-- Preparing -->
                             <div class="flex-1 min-w-[320px]">
                                 <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
                                     <span>Preparing</span> 
@@ -1578,8 +1649,6 @@
                                 </h2>
                                 ${cookingOrders.map(o => renderCard(o, 'cooking')).join('')}
                             </div>
-
-                            <!-- Done -->
                             <div class="flex-1 min-w-[320px]">
                                 <h2 class="font-bold text-slate-700 uppercase mb-4 flex justify-between items-center bg-slate-200/50 p-2 rounded-lg">
                                     <span>Ready / Served</span> 
@@ -1597,5 +1666,4 @@
     </script>
 </body>
 </html>
-
 
