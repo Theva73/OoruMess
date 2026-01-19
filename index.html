@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ooru Mess | Digital Ordering</title>
+    <title>Ooru Mess | Digital Ordering v3</title>
     
     <!-- ICON CONFIGURATION -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
@@ -43,6 +43,12 @@
             75% { transform: translateX(5px); }
         }
         .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -215,7 +221,7 @@
 
         // --- DuitNow Logic ---
         
-        // CRC16 Checksum Calculator (CCITT-FALSE / standard for EMVCo)
+        // CRC16 Checksum Calculator
         function generateCRC16(str) {
             let crc = 0xFFFF;
             for (let c = 0; c < str.length; c++) {
@@ -231,11 +237,8 @@
         // Generate Dynamic DuitNow String
         function generateDuitNowString(baseString, amount) {
             if (!baseString) return null;
-            
-            // Clean input
             baseString = baseString.trim();
 
-            // 1. Parse the base string into a map of objects
             let objects = {};
             let i = 0;
             try {
@@ -251,26 +254,12 @@
                 return null;
             }
             
-            // 2. CRITICAL FIX: Force Point of Initiation (Tag 01) to Dynamic (12)
-            // Even if the base string says "11" (Static), we must change it to "12" 
-            // so the banking app knows to read the amount field.
+            // Force Dynamic
             objects['01'] = '12';
-
-            // 3. Add/Update Transaction Amount (Tag 54)
             objects['54'] = parseFloat(amount).toFixed(2);
-            
-            // 4. Ensure Currency (Tag 53) is set to MYR (458)
-            if (!objects['53']) {
-                objects['53'] = '458';
-            }
-            
-            // 5. Ensure Country Code (Tag 58) is set to MY
-             if (!objects['58']) {
-                objects['58'] = 'MY';
-            }
+            if (!objects['53']) objects['53'] = '458';
+            if (!objects['58']) objects['58'] = 'MY';
 
-            // 6. Reconstruct string (Sort keys to be safe, EMVCo standard)
-            // Filter out 63 (CRC) because we will calculate a new one
             const keys = Object.keys(objects).filter(k => k !== '63').sort();
             
             let newString = '';
@@ -279,11 +268,7 @@
                 let len = val.length.toString().padStart(2, '0');
                 newString += k + len + val;
             }
-            
-            // 7. Append CRC ID and Length
             newString += '6304';
-            
-            // 8. Calculate and append CRC Value
             const crc = generateCRC16(newString);
             newString += crc;
             
@@ -362,7 +347,8 @@
             tabTotal: 0,
             checkoutMode: 'cart',
             duitNowBaseString: '',
-            testQRString: null
+            testQRString: null,
+            processingAction: null // NEW: Tracks active loading state
         };
 
         // --- Initialization ---
@@ -443,12 +429,11 @@
                 render();
             });
 
-            // Listen for Payment Settings (DuitNow String)
             onSnapshot(doc(db, basePath, "settings", "payment"), (docSnap) => {
                 if (docSnap.exists()) {
                     state.duitNowBaseString = docSnap.data().duitNowString || '';
                 }
-                render(); // Re-render to show value in admin panel
+                render(); 
             });
 
             onSnapshot(query(collection(db, basePath, "orders"), orderBy("timestamp", "desc")), (snap) => {
@@ -465,22 +450,11 @@
         }
 
         async function seedDatabase() {
-            console.log("Seeding Database...");
             const basePath = "artifacts/ooru-mess-github/public/data";
             const batch = writeBatch(db);
-
-            DEFAULT_CATEGORIES.forEach(cat => {
-                const ref = doc(collection(db, basePath, "categories"));
-                batch.set(ref, cat);
-            });
-
-            DEFAULT_MENU.forEach(item => {
-                const ref = doc(collection(db, basePath, "menu"));
-                batch.set(ref, item);
-            });
-
+            DEFAULT_CATEGORIES.forEach(cat => batch.set(doc(collection(db, basePath, "categories")), cat));
+            DEFAULT_MENU.forEach(item => batch.set(doc(collection(db, basePath, "menu")), item));
             await batch.commit();
-            console.log("Database Seeded!");
         }
 
         // --- Actions ---
@@ -522,7 +496,6 @@
         window.saveDuitNowString = async () => {
             const val = document.getElementById('duitNowInput').value.trim();
             if (!val) return;
-            
             try {
                 const basePath = "artifacts/ooru-mess-github/public/data";
                 await setDoc(doc(db, basePath, "settings", "payment"), {
@@ -537,28 +510,16 @@
         
         window.testDuitNowQR = () => {
             const val = document.getElementById('duitNowInput').value.trim();
-            if (!val) {
-                alert("Please paste a string first.");
-                return;
-            }
-            const testAmount = 1.00;
-            const dynamicString = generateDuitNowString(val, testAmount);
-            if (!dynamicString) {
-                alert("Failed to generate QR. Check string format.");
-                return;
-            }
+            if (!val) { alert("Please paste a string first."); return; }
+            const dynamicString = generateDuitNowString(val, 1.00);
+            if (!dynamicString) { alert("Failed to generate QR. Check string format."); return; }
             state.testQRString = dynamicString;
-            render(); // This will trigger the renderAdmin to show the QR
-            
+            render();
             setTimeout(() => {
                 const container = document.getElementById('testQROutput');
                 if (container) {
                     container.innerHTML = '';
-                    new QRCode(container, {
-                        text: dynamicString,
-                        width: 150,
-                        height: 150
-                    });
+                    new QRCode(container, { text: dynamicString, width: 150, height: 150 });
                 }
             }, 100);
         };
@@ -571,11 +532,7 @@
         window.addToCart = (itemId) => {
             const item = state.menuItems.find(i => i.id === itemId);
             const existing = state.cart.find(i => i.id === itemId);
-            if (existing) {
-                existing.quantity++;
-            } else {
-                state.cart.push({ ...item, quantity: 1 });
-            }
+            if (existing) { existing.quantity++; } else { state.cart.push({ ...item, quantity: 1 }); }
             render();
         };
 
@@ -606,30 +563,17 @@
 
         window.toggleConfirmation = (isOpen) => {
             state.isConfirmationOpen = isOpen;
-            if (isOpen) {
-                state.isCheckoutOpen = false;
-            } else {
-                state.isCheckoutOpen = true;
-            }
+            if (isOpen) { state.isCheckoutOpen = false; } else { state.isCheckoutOpen = true; }
             render();
         };
 
         function calculateTab(tableNum) {
-            const openOrders = state.orders.filter(o => 
-                o.tableNumber === tableNum && 
-                o.paymentStatus === 'pay_later' &&
-                o.status !== 'cancelled'
-            );
+            const openOrders = state.orders.filter(o => o.tableNumber === tableNum && o.paymentStatus === 'pay_later' && o.status !== 'cancelled');
             return openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
         }
 
         function getAllPendingTabs() {
-            const open = state.orders.filter(o =>
-                o.paymentStatus === 'pay_later' &&
-                o.status !== 'cancelled' &&
-                o.tableNumber
-            );
-
+            const open = state.orders.filter(o => o.paymentStatus === 'pay_later' && o.status !== 'cancelled' && o.tableNumber);
             const byTable = {};
             open.forEach(o => {
                 const t = String(o.tableNumber);
@@ -637,19 +581,12 @@
                 byTable[t].total += (o.total || 0);
                 byTable[t].count += 1;
             });
-
             return Object.values(byTable).sort((a, b) => Number(a.table) - Number(b.table));
         }
 
         window.setTableNumber = (num) => {
             state.tableNumber = num;
-            
-            const openOrders = state.orders.filter(o => 
-                o.tableNumber === num && 
-                o.paymentStatus === 'pay_later' &&
-                o.status !== 'cancelled'
-            );
-            
+            const openOrders = state.orders.filter(o => o.tableNumber === num && o.paymentStatus === 'pay_later' && o.status !== 'cancelled');
             state.tabTotal = openOrders.reduce((sum, o) => sum + (o.total || 0), 0);
             const pendingBillCount = openOrders.length; 
 
@@ -660,19 +597,14 @@
             if (btn) {
                 const canProceed = num && (hasCartItems || hasTab);
                 btn.disabled = !canProceed;
-                if (canProceed) {
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                } else {
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
-                }
+                if (canProceed) btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                else btn.classList.add('opacity-50', 'cursor-not-allowed');
                 
                 const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                 const grandTotal = cartTotal + state.tabTotal;
                 
                 const priceSpan = btn.querySelector('span:last-child');
-                if (priceSpan) {
-                    priceSpan.textContent = `RM ${grandTotal.toFixed(2)}`;
-                }
+                if (priceSpan) priceSpan.textContent = `RM ${grandTotal.toFixed(2)}`;
                 
                 const textSpan = btn.querySelector('span:first-child');
                 if (textSpan) {
@@ -727,7 +659,6 @@
                                 </div>
                             </div>
                         </div>
-                        
                         <div class="flex justify-between items-center mb-2 text-lg font-bold text-gray-900 border-t pt-4 mt-4">
                             <span>Total Due:</span>
                             <span>RM ${(state.cart.reduce((s,i)=>s+(i.price*i.quantity),0) + state.tabTotal).toFixed(2)}</span>
@@ -801,6 +732,7 @@
         // --- Order & Payment Logic ---
 
         window.initiatePayment = () => {
+             if (state.processingAction) return;
              if (!state.tableNumber) return;
              if (state.cart.length === 0 && state.tabTotal === 0) return;
              
@@ -860,58 +792,68 @@
         };
 
         window.confirmPayment = async (method) => {
-            const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            
-            if (method === 'settle_tab_cash' || method === 'settle_tab_qr') {
-                const realMethod = method === 'settle_tab_cash' ? 'cash' : 'qr';
-                if (state.cart.length > 0) {
-                    await createOrder('paid', realMethod, cartTotal);
-                }
-                if (!state.isDemoMode) {
-                    const basePath = "artifacts/ooru-mess-github/public/data";
-                    const q = query(
-                        collection(db, basePath, "orders"), 
-                        where("tableNumber", "==", state.tableNumber),
-                        where("paymentStatus", "==", "pay_later")
-                    );
-                    const snapshot = await getDocs(q);
-                    const batch = writeBatch(db);
-                    snapshot.docs.forEach(docSnap => {
-                        if (docSnap.data().status !== 'cancelled') {
-                            batch.update(docSnap.ref, { paymentStatus: 'paid', paymentMethod: realMethod + '_tab_settled' });
-                        }
-                    });
-                    await batch.commit();
-                } else {
-                    state.orders.forEach(o => {
-                        if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') {
-                            o.paymentStatus = 'paid';
-                        }
-                    });
-                }
-                alert(`Full Bill Settled! Table ${state.tableNumber} is now clear.`);
-                resetCart();
-                render();
-                return;
-            }
+            if (state.processingAction) return; // Guard against double click
 
-            if (method === 'pay_later') {
-                await createOrder('pay_later', 'pay_later', cartTotal);
-                alert(`Order added to Tab for Table ${state.tableNumber}. Kitchen notified!`);
-                resetCart();
-                render();
-                return;
-            }
-
-            await createOrder(method === 'qr' ? 'paid' : 'unpaid', method, cartTotal); 
-            
-            if (method === 'cash') {
-                alert(`Order Placed! Please pay RM ${cartTotal.toFixed(2)} at the counter.`);
-            } else {
-                alert(`Payment Received! Kitchen Notified.`);
-            }
-            resetCart();
+            // Set loading state
+            state.processingAction = method;
             render();
+
+            try {
+                const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                
+                if (method === 'settle_tab_cash' || method === 'settle_tab_qr') {
+                    const realMethod = method === 'settle_tab_cash' ? 'cash' : 'qr';
+                    if (state.cart.length > 0) {
+                        await createOrder('paid', realMethod, cartTotal);
+                    }
+                    if (!state.isDemoMode) {
+                        const basePath = "artifacts/ooru-mess-github/public/data";
+                        const q = query(
+                            collection(db, basePath, "orders"), 
+                            where("tableNumber", "==", state.tableNumber),
+                            where("paymentStatus", "==", "pay_later")
+                        );
+                        const snapshot = await getDocs(q);
+                        const batch = writeBatch(db);
+                        snapshot.docs.forEach(docSnap => {
+                            if (docSnap.data().status !== 'cancelled') {
+                                batch.update(docSnap.ref, { paymentStatus: 'paid', paymentMethod: realMethod + '_tab_settled' });
+                            }
+                        });
+                        await batch.commit();
+                    } else {
+                        state.orders.forEach(o => {
+                            if (o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later') {
+                                o.paymentStatus = 'paid';
+                            }
+                        });
+                    }
+                    alert(`Full Bill Settled! Table ${state.tableNumber} is now clear.`);
+                    resetCart();
+                } else if (method === 'pay_later') {
+                    await createOrder('pay_later', 'pay_later', cartTotal);
+                    alert(`Order added to Tab for Table ${state.tableNumber}. Kitchen notified!`);
+                    resetCart();
+                } else {
+                    await createOrder(method === 'qr' ? 'paid' : 'unpaid', method, cartTotal); 
+                    if (method === 'cash') {
+                        alert(`Order Placed! Please pay RM ${cartTotal.toFixed(2)} at the counter.`);
+                    } else {
+                        alert(`Payment Received! Kitchen Notified.`);
+                    }
+                    resetCart();
+                }
+            } catch (e) {
+                console.error("Payment Error:", e);
+                alert("Processing Error: " + e.message + ". Please try again.");
+            } finally {
+                // Clear loading state
+                state.processingAction = null;
+                // Only re-render if we haven't reset the cart (which does its own render)
+                // If resetCart() was called, the modal is closed anyway.
+                // If error occurred, this render ensures the buttons are re-enabled.
+                if (state.cart.length > 0 || state.tabTotal > 0) render();
+            }
         };
 
         async function createOrder(paymentStatus, paymentMethod, total) {
@@ -930,6 +872,8 @@
                 orderData.timestamp = { toDate: () => new Date() };
                 orderData.id = 'demo-' + Date.now();
                 state.orders.unshift(orderData);
+                // Simulate network delay in demo mode
+                await new Promise(r => setTimeout(r, 1500));
             } else {
                 const basePath = "artifacts/ooru-mess-github/public/data";
                 await addDoc(collection(db, basePath, "orders"), orderData);
@@ -944,6 +888,7 @@
             state.isPaymentOpen = false;
             state.tabTotal = 0;
             state.checkoutMode = 'cart';
+            render();
         }
 
         window.updateOrderStatus = async (orderId, newStatus) => {
@@ -1183,7 +1128,7 @@
                             </a>
                         </div>
                         
-                        <!-- NEW: DuitNow Configuration with Test Button -->
+                        <!-- DuitNow Configuration with Test Button -->
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-pink-500">
                             <h2 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="qr-code" class="w-5 h-5 text-pink-600"></i> Payment Configuration</h2>
                             <p class="text-sm text-gray-600 mb-4">
@@ -1248,17 +1193,12 @@
                 </div>
             `;
             
-            // Re-render Test QR if state exists (prevents disappearing on re-render)
             if (state.testQRString) {
                 setTimeout(() => {
                     const container = document.getElementById('testQROutput');
                     if (container && container.innerHTML.includes('QR will appear here')) {
                          container.innerHTML = '';
-                        new QRCode(container, {
-                            text: state.testQRString,
-                            width: 150,
-                            height: 150
-                        });
+                        new QRCode(container, { text: state.testQRString, width: 150, height: 150 });
                     }
                 }, 100);
             }
@@ -1271,7 +1211,6 @@
 
             const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
-            
             const visibleItems = state.menuItems.filter(item => item.category === state.activeCategory);
 
             const itemsHtml = visibleItems.map(item => {
@@ -1304,18 +1243,16 @@
                 </div>`;
             }).join('');
 
-            const tabsHtml = state.categories
-                .sort((a,b) => a.order - b.order)
-                .map(cat => `
-                    <button onclick="setCategory('${cat.name}')" 
-                        class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all transform active:scale-95 ${
-                            state.activeCategory === cat.name
-                            ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
-                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                        }">
-                        ${cat.name}
-                    </button>
-                `).join('');
+            const tabsHtml = state.categories.sort((a,b) => a.order - b.order).map(cat => `
+                <button onclick="setCategory('${cat.name}')" 
+                    class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide whitespace-nowrap transition-all transform active:scale-95 ${
+                        state.activeCategory === cat.name
+                        ? 'bg-orange-600 text-white shadow-md shadow-orange-200' 
+                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                    }">
+                    ${cat.name}
+                </button>
+            `).join('');
 
             let modalHtml = '';
             if (state.isCheckoutOpen) {
@@ -1414,12 +1351,7 @@
 
                 let tabSummaryHtml = '';
                 if (state.tabTotal > 0) {
-                    const openOrders = state.orders.filter(o => 
-                        o.tableNumber === state.tableNumber && 
-                        o.paymentStatus === 'pay_later' &&
-                        o.status !== 'cancelled'
-                    );
-                    
+                    const openOrders = state.orders.filter(o => o.tableNumber === state.tableNumber && o.paymentStatus === 'pay_later' && o.status !== 'cancelled');
                     const aggregated = {};
                     openOrders.forEach(o => {
                         if (o.items) {
@@ -1489,7 +1421,7 @@
                                 <h2 class="text-xl font-bold text-gray-900">Choose Payment</h2>
                                 <button onclick="togglePayment(false)" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-6 h-6"></i></button>
                             </div>
-                            <div class="space-y-4">
+                            <div class="space-y-4 ${state.processingAction ? 'opacity-50 pointer-events-none' : ''}">
                                 <div class="border rounded-xl p-4 hover:border-blue-500 transition cursor-pointer group bg-blue-50 border-blue-100" onclick="confirmPayment('pay_later')">
                                     <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition">
                                         <i data-lucide="clock" class="w-6 h-6 text-blue-600"></i>
@@ -1536,14 +1468,10 @@
                             <div class="p-8 flex flex-col items-center">
                                 <div class="w-64 h-64 bg-white p-2 rounded-xl shadow-lg border-2 border-orange-100 mb-6 relative group">
                                     <div class="absolute -inset-1 rounded-2xl border-2 border-dashed border-orange-300 animate-pulse"></div>
-                                    <div id="qrcode" class="w-full h-full bg-white flex items-center justify-center relative z-10 p-2">
-                                        <!-- DYNAMIC QR WILL RENDER HERE -->
-                                    </div>
+                                    <div id="qrcode" class="w-full h-full bg-white flex items-center justify-center relative z-10 p-2"></div>
                                 </div>
-                                
                                 <p class="text-sm text-gray-500 text-center mb-6 max-w-[200px]">Open your banking app or e-wallet to scan this DuitNow QR code.</p>
-                                
-                                <div class="w-full space-y-3">
+                                <div class="w-full space-y-3 ${state.processingAction ? 'opacity-50 pointer-events-none' : ''}">
                                     <button onclick="${isTabActive ? `confirmPayment('settle_tab_qr')` : `confirmPayment('qr')`}" class="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-100 transform active:scale-95 transition flex items-center justify-center gap-2">
                                         <i data-lucide="check-circle" class="w-5 h-5"></i>
                                         I have Paid
@@ -1557,6 +1485,19 @@
                     </div>
                     `;
                 }
+            }
+
+            // --- GLOBAL LOADING OVERLAY ---
+            let loadingOverlay = '';
+            if (state.processingAction) {
+                loadingOverlay = `
+                <div class="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center backdrop-blur-sm animate-fade-in">
+                    <div class="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center animate-slide-up max-w-[80vw]">
+                        <div class="w-12 h-12 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mb-4"></div>
+                        <h3 class="font-bold text-gray-800 text-lg">Processing...</h3>
+                        <p class="text-xs text-gray-500 text-center">Please wait while we verify your order.</p>
+                    </div>
+                </div>`;
             }
 
             let floatingCart = '';
@@ -1607,6 +1548,7 @@
                     ${modalHtml}
                     ${confirmationModalHtml}
                     ${paymentModalHtml}
+                    ${loadingOverlay}
                 </div>
             `;
         }
