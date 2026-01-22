@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ooru Mess | Digital Ordering v6</title>
+    <title>Ooru Mess | Digital Ordering v7</title>
     
     <!-- ICON CONFIGURATION -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
@@ -606,6 +606,16 @@
             if (isOpen && state.tableNumber) {
                 setTimeout(() => setTableNumber(state.tableNumber), 50);
             }
+        };
+        
+        // NEW: Handles closing logic based on mode
+        window.closeCheckout = () => {
+            state.isCheckoutOpen = false;
+            // If we were just checking the bill (not actively ordering items from the menu view), go back to landing
+            if (state.checkoutMode === 'check_bill') {
+                state.view = 'landing';
+            }
+            render();
         };
         
         window.togglePayment = (isOpen) => {
@@ -1407,7 +1417,7 @@
                     <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up">
                         <div class="p-4 border-b flex justify-between items-center bg-orange-50 sm:rounded-t-2xl">
                             <h2 class="font-bold flex items-center gap-2 text-lg"><i data-lucide="shopping-bag" class="w-5 h-5 text-orange-600"></i> Your Order</h2>
-                            <button onclick="toggleCheckout(false)" class="p-2 hover:bg-white rounded-full transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+                            <button onclick="closeCheckout()" class="p-2 hover:bg-white rounded-full transition"><i data-lucide="x" class="w-5 h-5"></i></button>
                         </div>
                         <div class="p-4 overflow-y-auto flex-1">
                             ${state.cart.length ? cartItemsHtml : '<p id="emptyCartMsg" class="text-center text-gray-400 py-10 flex flex-col items-center"><i data-lucide="shopping-cart" class="w-8 h-8 mb-2 opacity-50"></i>Cart is empty</p>'}
