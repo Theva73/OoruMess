@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ooru Mess | Digital Ordering v5</title>
+    <title>Ooru Mess | Digital Ordering v6</title>
     
     <!-- ICON CONFIGURATION -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
@@ -107,6 +107,10 @@
         .btn-green {
             background: linear-gradient(180deg, #10b981 0%, #059669 100%);
             box-shadow: 0 4px 0 #047857;
+        }
+        .btn-blue {
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+            box-shadow: 0 4px 0 #1d4ed8;
         }
 
         /* Prevent text chopping */
@@ -501,6 +505,13 @@
                 void container.offsetWidth; 
                 container.classList.add('animate-shake');
             }
+            render();
+        };
+
+        window.openCheckBill = () => {
+            state.view = 'customer';
+            state.checkoutMode = 'check_bill';
+            state.isCheckoutOpen = true;
             render();
         };
 
@@ -1091,6 +1102,11 @@
                     <button class=\"btn-3d btn-orange w-full py-4 text-white rounded-[999px] text-lg font-extrabold tracking-wide flex items-center justify-center gap-3\" onclick=\"setView('customer')\">
                         <span>Place Order</span>
                         <i data-lucide=\"utensils\" class=\"w-5 h-5\"></i>
+                    </button>
+
+                    <button class=\"btn-3d btn-blue w-full py-4 text-white rounded-[999px] text-lg font-bold tracking-wide flex items-center justify-center gap-3\" onclick=\"openCheckBill()\">
+                        <span>Check Bill</span>
+                        <i data-lucide=\"receipt\" class=\"w-5 h-5\"></i>
                     </button>
 
                     <button class=\"btn-3d btn-green w-full py-4 text-white rounded-[999px] text-lg font-bold tracking-wide flex items-center justify-center gap-3\" onclick=\"setView('kitchen')\">
