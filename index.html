@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ooru Mess | Digital Ordering v7</title>
+    <title>Ooru Mess | Digital Ordering v8</title>
     
     <!-- ICON CONFIGURATION -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
@@ -608,7 +608,7 @@
             }
         };
         
-        // NEW: Handles closing logic based on mode
+        // Handles closing logic based on mode
         window.closeCheckout = () => {
             state.isCheckoutOpen = false;
             // If we were just checking the bill (not actively ordering items from the menu view), go back to landing
@@ -781,7 +781,13 @@
             const category = document.getElementById('itemCategory').value;
             if(!name || !price || !category) return;
             const basePath = "artifacts/ooru-mess-github/public/data";
-            await addDoc(collection(db, basePath, "menu"), { name, variant, price, category });
+            await addDoc(collection(db, basePath, "menu"), { 
+                name, 
+                variant, 
+                price, 
+                category,
+                isHidden: false // Default to visible
+            });
             document.getElementById('itemName').value = '';
             document.getElementById('itemVariant').value = '';
             document.getElementById('itemPrice').value = '';
@@ -792,6 +798,12 @@
             if(!confirm("Are you sure you want to delete this item?")) return;
             const basePath = "artifacts/ooru-mess-github/public/data";
             await deleteDoc(doc(db, basePath, "menu", id));
+        };
+        
+        window.toggleItemVisibility = async (id, currentStatus) => {
+             const newStatus = !currentStatus;
+             const basePath = "artifacts/ooru-mess-github/public/data";
+             await updateDoc(doc(db, basePath, "menu", id), { isHidden: newStatus });
         };
 
         window.toggleAdminCategory = (catName) => {
@@ -1155,14 +1167,26 @@
                         <div class="${isExpanded ? 'block' : 'hidden'} p-4 border-t border-gray-100 bg-white">
                             <div class="space-y-2">
                                 ${catItems.length > 0 ? catItems.map(item => `
-                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition group">
+                                    <div class="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition group ${item.isHidden ? 'opacity-60 bg-gray-50' : ''}">
                                         <div>
-                                            <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                                            <div class="font-semibold text-gray-800 text-sm flex items-center gap-2">
+                                                ${item.name}
+                                                ${item.isHidden ? '<span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded font-bold uppercase">Hidden</span>' : ''}
+                                            </div>
                                             ${item.variant ? `<div class="text-xs text-gray-500">• ${item.variant}</div>` : ''}
                                         </div>
-                                        <div class="flex items-center gap-4">
-                                            <span class="font-bold text-gray-900 text-sm">RM ${parseFloat(item.price).toFixed(2)}</span>
-                                            <button onclick="handleDeleteItem('${item.id}')" class="text-gray-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        <div class="flex items-center gap-3">
+                                            <span class="font-bold text-gray-900 text-sm mr-2">RM ${parseFloat(item.price).toFixed(2)}</span>
+                                            
+                                            <button onclick="toggleItemVisibility('${item.id}', ${!!item.isHidden})" 
+                                                class="p-1.5 rounded-full transition ${item.isHidden ? 'bg-gray-200 text-gray-500' : 'text-blue-500 hover:bg-blue-50'}"
+                                                title="${item.isHidden ? 'Show Item' : 'Hide Item'}">
+                                                <i data-lucide="${item.isHidden ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>
+                                            </button>
+
+                                            <button onclick="handleDeleteItem('${item.id}')" class="text-gray-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-full transition" title="Delete Item">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
                                         </div>
                                     </div>
                                 `).join('') : '<p class="text-xs text-gray-400 italic py-2 text-center">No items in this category.</p>'}
@@ -1348,7 +1372,8 @@
             const cartTotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
             
-            const visibleItems = state.menuItems.filter(item => item.category === state.activeCategory);
+            // FILTER: Only show items that are NOT hidden
+            const visibleItems = state.menuItems.filter(item => item.category === state.activeCategory && !item.isHidden);
 
             const itemsHtml = visibleItems.map(item => {
                 const inCart = state.cart.find(c => c.id === item.id);
